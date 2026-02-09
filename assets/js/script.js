@@ -111,18 +111,110 @@ const departements = {
     "B424",
     "B428",
   ],
-  // Agregar los demás departamentos
+  GMP: [
+    "D001",
+    "D005",
+    "D007",
+    "D011",
+    "D-020",
+    "D-022",
+    "D-024",
+    "D-026",
+    "D037",
+    "D-041",
+    "D043",
+    "D-043",
+    "D-049",
+    "D-051",
+    "D049",
+    "D063",
+    "D067",
+    "D069",
+    "D071",
+    "D077",
+    "D079",
+    "D081",
+    "D083",
+    "D085",
+    "D087",
+    "D093",
+    "D093B",
+    "D095",
+  ],
+  GEII: [
+    "C109",
+    "C111",
+    "C113",
+    "D-001",
+    "D-003",
+    "D-004",
+    "D006",
+    "D-006",
+    "D008",
+    "D-008",
+    "D-009",
+    "D010",
+    "D012",
+    "D014",
+    "D-015",
+    "D018",
+    "D-019",
+    "D020",
+    "D024",
+    "D032",
+    "D034",
+    "D034B",
+    "D036",
+    "D044",
+    "D060",
+    "D062",
+    "D064",
+    "D066",
+    "D072",
+    "D072A",
+    "D074",
+    "D078",
+    "D084",
+    "D086",
+    "D086C",
+    "D090",
+    "D092",
+    "D094",
+    "D098",
+    "D098A",
+  ],
+  GACOD: [
+    "J006",
+    "J007",
+    "J101",
+    "J103",
+    "J105",
+    "J107",
+    "J109",
+    "J111",
+    "J113",
+    "J115",
+    "J117",
+    "J203",
+    "J211",
+  ],
+  GC: ["L003", "L004", "L005", "L011", "L101", "L201", "L205"],
+  FC: ["C007", "C009", "C011", "C021"],
+  LBMS: ["C103", "C105B"],
 };
 
 const departementEl = document.getElementById("departement");
-const salleEl = document.getElementById("salle");
+const salleInput = document.getElementById("salleInput");
 const searchBtn = document.getElementById("searchBtn");
+const sallesGrid = document.getElementById("sallesGrid");
 const hostsGrid = document.getElementById("hostsGrid");
 const wakeBtn = document.getElementById("wakeBtn");
 const pingBtn = document.getElementById("pingBtn");
 
+let currentSalle = null;
 let currentHosts = [];
 
+// Cargar departamentos
 Object.keys(departements).forEach((d) => {
   const opt = document.createElement("option");
   opt.value = d;
@@ -130,32 +222,50 @@ Object.keys(departements).forEach((d) => {
   departementEl.appendChild(opt);
 });
 
-departementEl.addEventListener("change", () => {
-  const dep = departementEl.value;
-  salleEl.innerHTML = '<option value="">-- Choisir Salle --</option>';
-  if (!dep) return;
-  departements[dep].forEach((s) => {
-    const opt = document.createElement("option");
-    opt.value = s;
-    opt.textContent = s;
-    salleEl.appendChild(opt);
+// Mostrar salas como cards
+function renderSalles(dept) {
+  sallesGrid.innerHTML = "";
+  if (!dept || !departements[dept]) return;
+  departements[dept].forEach((s) => {
+    const div = document.createElement("div");
+    div.className =
+      "card-hover bg-white rounded-xl p-4 border cursor-pointer text-center";
+    div.textContent = s;
+    div.addEventListener("click", () => {
+      currentSalle = s;
+      salleInput.value = s;
+      Array.from(sallesGrid.children).forEach((c) =>
+        c.classList.remove("border-blue-600", "border-4"),
+      );
+      div.classList.add("border-blue-600", "border-4");
+    });
+    sallesGrid.appendChild(div);
   });
-});
+}
 
+// Eventos
+departementEl.addEventListener("change", () =>
+  renderSalles(departementEl.value),
+);
 searchBtn.addEventListener("click", fetchHosts);
 pingBtn.addEventListener("click", () => doAction("ping"));
 wakeBtn.addEventListener("click", () => doAction("awake"));
 
+// Pedir hosts a la API y mostrar
 async function fetchHosts() {
-  const salle = salleEl.value;
-  if (!salle) return alert("Choisir une salle");
+  if (!currentSalle && !salleInput.value) return alert("Seleccione sala");
+  currentSalle = salleInput.value.trim();
 
   hostsGrid.innerHTML = "Chargement...";
   try {
     const res = await fetch("http://172.18.61.113:3000/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "Room", name: salle, action: "ping" }),
+      body: JSON.stringify({
+        type: "Room",
+        name: currentSalle,
+        action: "ping",
+      }),
     });
     const data = await res.json();
     currentHosts = data.results;
@@ -177,28 +287,27 @@ function renderHosts() {
       "card-hover bg-white rounded-xl p-4 border cursor-pointer flex flex-col items-center text-center";
     div.dataset.host = h.id;
     div.innerHTML = `
-      <i class="fas fa-desktop text-4xl mb-2 ${h.online ? "host-online" : h.online === false ? "host-offline" : "host-na"}"></i>
+      <i class="fas fa-desktop text-4xl mb-2 ${h.online === true ? "host-online" : h.online === false ? "host-offline" : "host-na"}"></i>
       <div class="font-bold">${h.id}</div>
       <div class="text-sm">${h.online === true ? "Online" : h.online === false ? "Offline" : "N/A"}</div>
     `;
     div.addEventListener("click", () => {
-      div.classList.toggle("border-blue-500");
       div.classList.toggle("border-4");
+      div.classList.toggle("border-blue-600");
     });
-
     hostsGrid.appendChild(div);
   });
 }
 
+// Acción wake / ping
 async function doAction(action) {
   const selectedHosts = Array.from(hostsGrid.querySelectorAll(".border-4")).map(
     (d) => d.dataset.host,
   );
-  if (!selectedHosts.length && !currentHosts.length)
-    return alert("Aucun host à sélectionner");
-
   const type = selectedHosts.length ? "Hosts" : "Room";
-  const name = selectedHosts.length ? selectedHosts.join(",") : salleEl.value;
+  const name = selectedHosts.length ? selectedHosts.join(",") : currentSalle;
+
+  if (!name) return alert("Aucun host à sélectionner");
 
   try {
     const res = await fetch("http://172.18.61.113:3000/api/action", {
@@ -210,9 +319,7 @@ async function doAction(action) {
     currentHosts = data.results;
     renderHosts();
 
-    if (action === "awake") {
-      setTimeout(() => doAction("ping"), 40000);
-    }
+    if (action === "awake") setTimeout(() => doAction("ping"), 40000);
   } catch (e) {
     alert("Erreur: " + e.message);
   }
