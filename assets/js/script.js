@@ -1,3 +1,4 @@
+// 1. Base de datos de Departamentos y Salas
 const departements = {
   SG: [
     "A004",
@@ -203,60 +204,85 @@ const departements = {
   LBMS: ["C103", "C105B"],
 };
 
+// 2. Referencias al DOM
 const departementEl = document.getElementById("departement");
-const salleInput = document.getElementById("salleInput");
-const searchBtn = document.getElementById("searchBtn");
 const sallesGrid = document.getElementById("sallesGrid");
 const hostsGrid = document.getElementById("hostsGrid");
-const wakeBtn = document.getElementById("wakeBtn");
+const sectionSalles = document.getElementById("sectionSalles");
+const sectionHosts = document.getElementById("sectionHosts");
+const labelSalle = document.getElementById("labelSalle");
 const pingBtn = document.getElementById("pingBtn");
+const wakeBtn = document.getElementById("wakeBtn");
 
 let currentSalle = null;
-let currentHosts = [];
 
-// Cargar departamentos
-Object.keys(departements).forEach((d) => {
-  const opt = document.createElement("option");
-  opt.value = d;
-  opt.textContent = d;
-  departementEl.appendChild(opt);
+// 3. Inicialización
+function init() {
+  // Llenar el select de departamentos
+  Object.keys(departements)
+    .sort()
+    .forEach((d) => {
+      const opt = document.createElement("option");
+      opt.value = d;
+      opt.textContent = d;
+      departementEl.appendChild(opt);
+    });
+}
+
+// 4. Gestión de Salas
+departementEl.addEventListener("change", (e) => {
+  const dept = e.target.value;
+
+  // Reset de la interfaz
+  sallesGrid.innerHTML = "";
+  hostsGrid.innerHTML = "";
+  sectionHosts.classList.add("hidden");
+  currentSalle = null;
+
+  if (dept && departements[dept]) {
+    sectionSalles.classList.remove("hidden");
+    renderSalles(dept);
+  } else {
+    sectionSalles.classList.add("hidden");
+  }
 });
 
-// Mostrar salas como cards
 function renderSalles(dept) {
-  sallesGrid.innerHTML = "";
-  if (!dept || !departements[dept]) return;
-  departements[dept].forEach((s) => {
-    const div = document.createElement("div");
-    div.className =
-      "card-hover bg-white rounded-xl p-4 border cursor-pointer text-center";
-    div.textContent = s;
-    div.addEventListener("click", () => {
-      currentSalle = s;
-      salleInput.value = s;
-      Array.from(sallesGrid.children).forEach((c) =>
-        c.classList.remove("border-blue-600", "border-4"),
-      );
-      div.classList.add("border-blue-600", "border-4");
+  departements[dept].forEach((salle) => {
+    const card = document.createElement("div");
+    card.className =
+      "bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm cursor-pointer hover:border-blue-400 hover:shadow-md transition-all text-center font-medium text-gray-700";
+    card.textContent = salle;
+
+    card.addEventListener("click", () => {
+      // Marcar visualmente la sala seleccionada
+      document
+        .querySelectorAll("#sallesGrid div")
+        .forEach((el) =>
+          el.classList.remove("selected-room", "border-blue-500", "bg-blue-50"),
+        );
+      card.classList.add("selected-room", "border-blue-500", "bg-blue-50");
+
+      currentSalle = salle;
+      labelSalle.textContent = salle;
+      fetchHosts(); // Llamada automática al seleccionar sala
     });
-    sallesGrid.appendChild(div);
+
+    sallesGrid.appendChild(card);
   });
 }
 
-// Eventos
-departementEl.addEventListener("change", () =>
-  renderSalles(departementEl.value),
-);
-searchBtn.addEventListener("click", fetchHosts);
-pingBtn.addEventListener("click", () => doAction("ping"));
-wakeBtn.addEventListener("click", () => doAction("awake"));
-
-// Pedir hosts a la API y mostrar
+// 5. Gestión de Hosts (API)
 async function fetchHosts() {
-  if (!currentSalle && !salleInput.value) return alert("Seleccione sala");
-  currentSalle = salleInput.value.trim();
+  if (!currentSalle) return;
 
-  hostsGrid.innerHTML = "Chargement...";
+  sectionHosts.classList.remove("hidden");
+  hostsGrid.innerHTML = `
+        <div class="col-span-full py-10 text-center">
+            <i class="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-2"></i>
+            <p class="text-gray-500 italic">Interrogation des machines de la salle ${currentSalle}...</p>
+        </div>`;
+
   try {
     const res = await fetch("http://172.18.61.113:3000/api/action", {
       method: "POST",
@@ -268,46 +294,75 @@ async function fetchHosts() {
       }),
     });
     const data = await res.json();
-    currentHosts = data.results;
-    renderHosts();
+    renderHosts(data.results);
   } catch (e) {
-    hostsGrid.innerHTML = "Erreur: " + e.message;
+    hostsGrid.innerHTML = `
+            <div class="col-span-full bg-red-50 text-red-600 p-4 rounded-lg border border-red-200">
+                <i class="fas fa-exclamation-triangle mr-2"></i> Erreur de connexion API: ${e.message}
+            </div>`;
   }
 }
 
-function renderHosts() {
+function renderHosts(hosts) {
   hostsGrid.innerHTML = "";
-  if (!currentHosts.length) {
-    hostsGrid.innerHTML = "<p>Aucun host trouvé</p>";
+
+  if (!hosts || hosts.length === 0) {
+    hostsGrid.innerHTML =
+      "<p class='col-span-full text-gray-500 py-8'>Aucun hôte trouvé pour cette configuration.</p>";
     return;
   }
-  currentHosts.forEach((h) => {
+
+  hosts.forEach((h) => {
+    const isOnline = h.online === true;
+    const statusText = isOnline
+      ? "En ligne"
+      : h.online === false
+        ? "Hors ligne"
+        : "Inconnu";
+    const statusClass = isOnline ? "host-online" : "host-offline";
+
     const div = document.createElement("div");
     div.className =
-      "card-hover bg-white rounded-xl p-4 border cursor-pointer flex flex-col items-center text-center";
-    div.dataset.host = h.id;
+      "bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col items-center group";
+    div.dataset.hostId = h.id;
+
     div.innerHTML = `
-      <i class="fas fa-desktop text-4xl mb-2 ${h.online === true ? "host-online" : h.online === false ? "host-offline" : "host-na"}"></i>
-      <div class="font-bold">${h.id}</div>
-      <div class="text-sm">${h.online === true ? "Online" : h.online === false ? "Offline" : "N/A"}</div>
-    `;
+            <div class="relative mb-3">
+                <i class="fas fa-desktop text-4xl ${statusClass} transition-transform group-hover:scale-110"></i>
+                <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"} border-2 border-white"></div>
+            </div>
+            <div class="font-bold text-gray-800">${h.id}</div>
+            <div class="text-xs font-semibold uppercase mt-1 ${isOnline ? "text-green-600" : "text-red-500"}">
+                ${statusText}
+            </div>
+            <div class="text-[10px] text-gray-400 mt-2 font-mono">${h.ip || "Pas d'IP"}</div>
+        `;
+
     div.addEventListener("click", () => {
-      div.classList.toggle("border-4");
-      div.classList.toggle("border-blue-600");
+      div.classList.toggle("ring-2");
+      div.classList.toggle("ring-blue-500");
+      div.classList.toggle("border-blue-500");
     });
+
     hostsGrid.appendChild(div);
   });
 }
 
-// Acción wake / ping
-async function doAction(action) {
-  const selectedHosts = Array.from(hostsGrid.querySelectorAll(".border-4")).map(
-    (d) => d.dataset.host,
-  );
-  const type = selectedHosts.length ? "Hosts" : "Room";
-  const name = selectedHosts.length ? selectedHosts.join(",") : currentSalle;
+// 6. Acciones (Ping / Wake)
+async function handleAction(action) {
+  const selectedElements = Array.from(hostsGrid.querySelectorAll(".ring-2"));
+  const selectedIds = selectedElements.map((el) => el.dataset.hostId);
 
-  if (!name) return alert("Aucun host à sélectionner");
+  const type = selectedIds.length ? "Hosts" : "Room";
+  const name = selectedIds.length ? selectedIds.join(",") : currentSalle;
+
+  if (!name) return alert("Veuillez sélectionner une salle o des machines.");
+
+  // Feedback visual en el botón
+  const btn = action === "ping" ? pingBtn : wakeBtn;
+  const originalContent = btn.innerHTML;
+  btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> En cours...`;
+  btn.disabled = true;
 
   try {
     const res = await fetch("http://172.18.61.113:3000/api/action", {
@@ -316,11 +371,25 @@ async function doAction(action) {
       body: JSON.stringify({ type, name, action }),
     });
     const data = await res.json();
-    currentHosts = data.results;
-    renderHosts();
 
-    if (action === "awake") setTimeout(() => doAction("ping"), 40000);
+    // Si es wake, esperamos un poco y refrescamos pings automáticamente
+    if (action === "awake") {
+      alert("Signal Wake-on-LAN envoyé ! Rafraîchissement dans 20s...");
+      setTimeout(fetchHosts, 20000);
+    } else {
+      renderHosts(data.results);
+    }
   } catch (e) {
-    alert("Erreur: " + e.message);
+    alert("Erreur lors de l'action: " + e.message);
+  } finally {
+    btn.innerHTML = originalContent;
+    btn.disabled = false;
   }
 }
+
+// Event Listeners para botones
+pingBtn.addEventListener("click", () => handleAction("ping"));
+wakeBtn.addEventListener("click", () => handleAction("awake"));
+
+// Arrancar
+init();
