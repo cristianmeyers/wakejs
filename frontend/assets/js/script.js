@@ -365,7 +365,7 @@ async function handleAction(action) {
   btn.disabled = true;
 
   try {
-    const res = await fetch("http://172.18.61.113:3000/api/action", {
+    const res = await fetch("http://localhost:3000/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, name, action }),

@@ -4,38 +4,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion de Parc Informatique</title>
+    <title>WAKEJS</title>
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-    <style>
-        .glass-card {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(10px);
-        }
-
-        .host-online {
-            color: #22c55e;
-        }
-
-        .host-offline {
-            color: #ef4444;
-        }
-
-        .selected-room {
-            border-color: #3b82f6 !important;
-            background-color: #eff6ff !important;
-            ring: 2px;
-            ring-color: #3b82f6;
-        }
-    </style>
+    <!-- CSS -->
+    <link rel="stylesheet" href="assets/style/style.css">
 </head>
 
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
     <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white py-8 shadow-xl mb-8">
         <div class="container mx-auto px-4">
-            <h1 class="text-4xl font-extrabold tracking-tight">Gestion Interactive des Machines</h1>
-            <p class="text-blue-100 mt-2 text-lg">Administration centralisée du parc informatique</p>
+            <h1 class="text-4xl font-extrabold tracking-tight">
+                Wake<span class="text-blue-400">JS</span> – Gestion centralisée
+            </h1>
+            <p class="text-blue-100 mt-2 text-lg">
+                Démarrage centralisée du parc informatique
+            </p>
         </div>
+
     </header>
 
     <main class="container mx-auto px-4 pb-12">
