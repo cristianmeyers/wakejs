@@ -1,3 +1,8 @@
+// ==========================================
+// CONFIGURACIÓN GLOBAL
+// ==========================================
+const API_URL = "http://brwake.univ-brest.fr:3000/api/action";
+
 // 1. Base de datos de Departamentos y Salas
 const departements = {
   SG: [
@@ -218,7 +223,6 @@ let currentSalle = null;
 
 // 3. Inicialización
 function init() {
-  // Llenar el select de departamentos
   Object.keys(departements)
     .sort()
     .forEach((d) => {
@@ -232,8 +236,6 @@ function init() {
 // 4. Gestión de Salas
 departementEl.addEventListener("change", (e) => {
   const dept = e.target.value;
-
-  // Reset de la interfaz
   sallesGrid.innerHTML = "";
   hostsGrid.innerHTML = "";
   sectionHosts.classList.add("hidden");
@@ -255,7 +257,6 @@ function renderSalles(dept) {
     card.textContent = salle;
 
     card.addEventListener("click", () => {
-      // Marcar visualmente la sala seleccionada
       document
         .querySelectorAll("#sallesGrid div")
         .forEach((el) =>
@@ -265,14 +266,14 @@ function renderSalles(dept) {
 
       currentSalle = salle;
       labelSalle.textContent = salle;
-      fetchHosts(); // Llamada automática al seleccionar sala
+      fetchHosts();
     });
 
     sallesGrid.appendChild(card);
   });
 }
 
-// 5. Gestión de Hosts (API)
+// 5. Gestión de Hosts (API con Variable Global)
 async function fetchHosts() {
   if (!currentSalle) return;
 
@@ -284,7 +285,7 @@ async function fetchHosts() {
         </div>`;
 
   try {
-    const res = await fetch("http://localhost:3000/api/action", {
+    const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -305,10 +306,9 @@ async function fetchHosts() {
 
 function renderHosts(hosts) {
   hostsGrid.innerHTML = "";
-
   if (!hosts || hosts.length === 0) {
     hostsGrid.innerHTML =
-      "<p class='col-span-full text-gray-500 py-8'>Aucun hôte trouvé pour cette configuration.</p>";
+      "<p class='col-span-full text-gray-500 py-8'>Aucun hôte trouvé.</p>";
     return;
   }
 
@@ -332,9 +332,7 @@ function renderHosts(hosts) {
                 <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"} border-2 border-white"></div>
             </div>
             <div class="font-bold text-gray-800">${h.id}</div>
-            <div class="text-xs font-semibold uppercase mt-1 ${isOnline ? "text-green-600" : "text-red-500"}">
-                ${statusText}
-            </div>
+            <div class="text-xs font-semibold uppercase mt-1 ${isOnline ? "text-green-600" : "text-red-500"}">${statusText}</div>
             <div class="text-[10px] text-gray-400 mt-2 font-mono">${h.ip || "Pas d'IP"}</div>
         `;
 
@@ -348,7 +346,7 @@ function renderHosts(hosts) {
   });
 }
 
-// 6. Acciones (Ping / Wake)
+// 6. Acciones (Ping / Wake con Variable Global)
 async function handleAction(action) {
   const selectedElements = Array.from(hostsGrid.querySelectorAll(".ring-2"));
   const selectedIds = selectedElements.map((el) => el.dataset.hostId);
@@ -358,21 +356,19 @@ async function handleAction(action) {
 
   if (!name) return alert("Veuillez sélectionner une salle o des machines.");
 
-  // Feedback visual en el botón
   const btn = action === "ping" ? pingBtn : wakeBtn;
   const originalContent = btn.innerHTML;
   btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> En cours...`;
   btn.disabled = true;
 
   try {
-    const res = await fetch("http://localhost:3000/api/action", {
+    const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, name, action }),
     });
     const data = await res.json();
 
-    // Si es wake, esperamos un poco y refrescamos pings automáticamente
     if (action === "awake") {
       alert("Signal Wake-on-LAN envoyé ! Rafraîchissement dans 20s...");
       setTimeout(fetchHosts, 20000);
@@ -387,9 +383,8 @@ async function handleAction(action) {
   }
 }
 
-// Event Listeners para botones
+// Event Listeners
 pingBtn.addEventListener("click", () => handleAction("ping"));
 wakeBtn.addEventListener("click", () => handleAction("awake"));
 
-// Arrancar
 init();
