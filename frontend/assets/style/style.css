@@ -1,3 +1,7 @@
+html {
+  scroll-behavior: smooth;
+}
+
 .card-hover {
   transition: all 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
@@ -22,4 +26,24 @@
 
 .cursor-pointer {
   cursor: pointer;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.host-online {
+  color: #22c55e;
+}
+
+.host-offline {
+  color: #ef4444;
+}
+
+.selected-room {
+  border-color: #3b82f6 !important;
+  background-color: #eff6ff !important;
+  ring: 2px;
+  ring-color: #3b82f6;
 }

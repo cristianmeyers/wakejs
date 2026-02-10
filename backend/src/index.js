@@ -33,9 +33,13 @@ function parseDhcp(filePath) {
   return hosts;
 }
 
+function getBroadcastAddress(ip) {
+  const parts = ip.split(".");
+  return `${parts[0]}.${parts[1]}.${parts[2]}.255`;
+}
+
 function selectHosts(hosts, type, name) {
   if (type === "Room") {
-    // Búsqueda case-insensitive
     const nameLower = name.toLowerCase();
     return hosts.filter((h) => h.room && h.room.toLowerCase() === nameLower);
   }
@@ -58,17 +62,52 @@ async function pingHosts(hosts) {
 }
 
 async function wakeHosts(hosts) {
-  return await Promise.all(
-    hosts.map(
-      (h) =>
-        new Promise((resolve) => {
-          wol.wake(h.mac, (err) => {
-            if (err) resolve({ ...h, awake: false, error: err.message });
-            else resolve({ ...h, awake: true });
-          });
-        }),
-    ),
-  );
+  // Si <= 10 hosts, tout d'un coup
+  if (hosts.length <= 10) {
+    return await Promise.all(
+      hosts.map(
+        (h) =>
+          new Promise((resolve) => {
+            wol.wake(h.mac, { address: getBroadcastAddress(h.ip) }, (err) => {
+              if (err) resolve({ ...h, awake: false, error: err.message });
+              else resolve({ ...h, awake: true });
+            });
+          }),
+      ),
+    );
+  }
+
+  // Si > 10 hosts, par blocs de 5 avec 1 min de délai
+  const results = [];
+  for (let i = 0; i < hosts.length; i += 5) {
+    const block = hosts.slice(i, i + 5);
+
+    console.log(
+      `Réveil du bloc ${Math.floor(i / 5) + 1} (${block.length} hosts)...`,
+    );
+
+    const blockResults = await Promise.all(
+      block.map(
+        (h) =>
+          new Promise((resolve) => {
+            wol.wake(h.mac, { address: getBroadcastAddress(h.ip) }, (err) => {
+              if (err) resolve({ ...h, awake: false, error: err.message });
+              else resolve({ ...h, awake: true });
+            });
+          }),
+      ),
+    );
+
+    results.push(...blockResults);
+
+    // Attendre 1 min sauf pour le dernier bloc
+    if (i + 5 < hosts.length) {
+      console.log(`Pause de 1 minute avant le prochain bloc...`);
+      await new Promise((resolve) => setTimeout(resolve, 60000));
+    }
+  }
+
+  return results;
 }
 
 async function shutdownHosts(hosts) {
@@ -90,13 +129,12 @@ app.post("/api/action", async (req, res) => {
   if (!type || !name || !action)
     return res.status(400).json({ error: "Faltan parámetros" });
 
-  const allHosts = parseDhcp("dhcp-template.conf");
+  const allHosts = parseDhcp("../config/dhcp-template.conf");
   let requestedIds = [];
 
   if (type === "Hosts") {
     requestedIds = name.split(",").map((x) => x.trim());
   } else if (type === "Room") {
-    // Búsqueda case-insensitive
     const nameLower = name.toLowerCase();
     requestedIds = allHosts
       .filter((h) => h.room && h.room.toLowerCase() === nameLower)
@@ -117,22 +155,26 @@ app.post("/api/action", async (req, res) => {
 
       if (action === "awake") {
         return new Promise((resolve) => {
-          wol.wake(host.mac, (err) => {
-            if (err)
-              resolve({
-                ...host,
-                found: true,
-                awake: false,
-                error: err.message,
-              });
-            else resolve({ ...host, found: true, awake: true });
-          });
+          wol.wake(
+            host.mac,
+            { address: getBroadcastAddress(host.ip) },
+            (err) => {
+              if (err)
+                resolve({
+                  ...host,
+                  found: true,
+                  awake: false,
+                  error: err.message,
+                });
+              else resolve({ ...host, found: true, awake: true });
+            },
+          );
         });
       }
 
       if (action === "shutdown") {
         return new Promise((resolve) => {
-          exec(`ssh user@${h.ip} "sudo shutdown now"`, (err) => {
+          exec(`ssh user@${host.ip} "sudo shutdown now"`, (err) => {
             if (err)
               resolve({
                 ...host,
@@ -145,7 +187,7 @@ app.post("/api/action", async (req, res) => {
         });
       }
 
-      return { ...host, found: true }; // fallback
+      return { ...host, found: true };
     }),
   );
 
@@ -153,5 +195,5 @@ app.post("/api/action", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`API WOL escuchando en http://localhost:${PORT}`);
+  console.log(`API WOL listen to http://localhost:${PORT}`);
 });
