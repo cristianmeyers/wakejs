@@ -4,14 +4,26 @@ const ping = require("ping");
 const wol = require("wol");
 const { exec } = require("child_process");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Listening
+const HOST = "0.0.0.0";
 const PORT = 3000;
 
 function parseDhcp(filePath) {
-  const content = fs.readFileSync(filePath, "utf8");
+  const configPath = path.join(__dirname, "..", "config", "dhcp-template.conf");
+
+  if (!fs.existsSync(configPath)) {
+    throw new Error(
+      `❌ DHCP file not found: ${configPath}\n   make backend/config/dhcp-template.conf with hosts`,
+    );
+  }
+
+  const content = fs.readFileSync(configPath, "utf8");
   const hosts = [];
   const lines = content.split("\n");
 
@@ -20,14 +32,20 @@ function parseDhcp(filePath) {
     if (!line || line.startsWith("#")) continue;
     if (!line.startsWith("host ")) continue;
 
-    const name = line.match(/host\s+([\w-]+)/)?.[1];
-    const mac = line.match(/hardware ethernet\s+([0-9a-f:]+)/)?.[1];
-    const ip = line.match(/fixed-address\s+([\d.]+)/)?.[1];
+    const name = line.match(/host\s+([\w-]+)/i)?.[1];
+    const mac = line.match(/hardware ethernet\s+([0-9a-f:]+)/i)?.[1];
+    const ip = line.match(/fixed-address\s+([\d.]+)/i)?.[1];
     let room = null;
-    const commentMatch = line.match(/#\s*(\S+)/);
+    const commentMatch = line.match(/#\s*(\S+)/i);
     if (commentMatch) room = commentMatch[1];
 
-    if (name && mac && ip) hosts.push({ id: name, mac, ip, room });
+    if (name && mac && ip) {
+      hosts.push({ id: name, mac: mac.toLowerCase(), ip, room });
+    }
+  }
+
+  if (hosts.length === 0) {
+    console.warn("⚠️  No hosts was found on dhcp-template.conf");
   }
 
   return hosts;
@@ -129,7 +147,7 @@ app.post("/api/action", async (req, res) => {
   if (!type || !name || !action)
     return res.status(400).json({ error: "Faltan parámetros" });
 
-  const allHosts = parseDhcp("../config/dhcp-template.conf");
+  const allHosts = parseDhcp();
   let requestedIds = [];
 
   if (type === "Hosts") {
@@ -194,6 +212,8 @@ app.post("/api/action", async (req, res) => {
   res.json({ action, count: results.length, results });
 });
 
-app.listen(PORT, () => {
-  console.log(`API WOL listen to http://localhost:${PORT}`);
+// ====================================================== Listening
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 API WOL at http://${HOST}:${PORT}`);
+  console.log(`   ✅ Reachable from: localhost:${PORT}, any IPs on server`);
 });
