@@ -1,9 +1,8 @@
 // ==========================================
-// CONFIGURACIÓN GLOBAL
+// Main JavaScript for WakeJS Frontend
 // ==========================================
-const API_URL = "http://brwake.univ-brest.fr:3000/api/action";
+const API_URL = "/api/action";
 
-// 1. Base de datos de Departamentos y Salas
 const departements = {
   SG: [
     "A004",
