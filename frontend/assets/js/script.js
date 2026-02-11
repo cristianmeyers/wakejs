@@ -208,7 +208,6 @@ const departements = {
   LBMS: ["C103", "C105B"],
 };
 
-// 2. Referencias al DOM
 const departementEl = document.getElementById("departement");
 const sallesGrid = document.getElementById("sallesGrid");
 const hostsGrid = document.getElementById("hostsGrid");
@@ -220,7 +219,6 @@ const wakeBtn = document.getElementById("wakeBtn");
 
 let currentSalle = null;
 
-// 3. Inicialización
 function init() {
   Object.keys(departements)
     .sort()
@@ -232,7 +230,6 @@ function init() {
     });
 }
 
-// 4. Gestión de Salas
 departementEl.addEventListener("change", (e) => {
   const dept = e.target.value;
   sallesGrid.innerHTML = "";
@@ -272,7 +269,6 @@ function renderSalles(dept) {
   });
 }
 
-// 5. Gestión de Hosts (API con Variable Global)
 async function fetchHosts() {
   if (!currentSalle) return;
 
@@ -345,7 +341,6 @@ function renderHosts(hosts) {
   });
 }
 
-// 6. Acciones (Ping / Wake con Variable Global)
 async function handleAction(action) {
   const selectedElements = Array.from(hostsGrid.querySelectorAll(".ring-2"));
   const selectedIds = selectedElements.map((el) => el.dataset.hostId);
