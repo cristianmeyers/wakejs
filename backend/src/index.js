@@ -14,12 +14,34 @@ app.use(express.json());
 const HOST = "0.0.0.0";
 const PORT = 3000;
 
+// ====================================================== VLAN Configuration
+// VLAN configuration and their broadcast addresses
+const VLAN_CONFIG = [
+  {
+    // VLAN 1: Subnet range 172.18.53.0 to 172.18.59.0
+    subnetStart: 53,
+    subnetEnd: 59,
+    broadcastAddress: "172.18.60.255",
+    description: "Primary VLAN (subnets 53-59)",
+  },
+  {
+    // VLAN 2: Subnet range 172.18.240.0 to 172.18.247.0
+    subnetStart: 240,
+    subnetEnd: 247,
+    broadcastAddress: "172.18.240.255",
+    description: "Secondary VLAN (subnets 240-247)",
+  },
+];
+
+// Wake-on-LAN port configuration (default: 9, same as wakeonlan command)
+const WOL_PORT = 9;
+
 function parseDhcp(filePath) {
-  const configPath = path.join(__dirname, "..", "config", "dhcp-template.conf");
+  const configPath = path.join(__dirname, "..", "config", "dhcpd.conf");
 
   if (!fs.existsSync(configPath)) {
     throw new Error(
-      `❌ DHCP file not found: ${configPath}\n   make backend/config/dhcp-template.conf with hosts`,
+      `❌ DHCP file not found: ${configPath}\n   Create backend/config/dhcpd.conf with hosts`,
     );
   }
 
@@ -45,7 +67,7 @@ function parseDhcp(filePath) {
   }
 
   if (hosts.length === 0) {
-    console.warn("⚠️  No hosts was found on dhcp-template.conf");
+    console.warn("⚠️  No hosts were found in dhcpd.conf");
   }
 
   return hosts;
@@ -53,6 +75,31 @@ function parseDhcp(filePath) {
 
 function getBroadcastAddress(ip) {
   const parts = ip.split(".");
+
+  // Validate IP is in 172.18.x.x format
+  if (parts.length !== 4 || parts[0] !== "172" || parts[1] !== "18") {
+    console.warn(
+      `⚠️  IP ${ip} is not in expected range 172.18.x.x, using default broadcast`,
+    );
+    return `${parts[0]}.${parts[1]}.${parts[2]}.255`;
+  }
+
+  const thirdOctet = parseInt(parts[2], 10);
+
+  // Find the corresponding VLAN configuration
+  for (const vlan of VLAN_CONFIG) {
+    if (thirdOctet >= vlan.subnetStart && thirdOctet <= vlan.subnetEnd) {
+      console.log(
+        `📡 IP ${ip} → Broadcast ${vlan.broadcastAddress} (${vlan.description})`,
+      );
+      return vlan.broadcastAddress;
+    }
+  }
+
+  // If not found in any configured VLAN, use previous method as fallback
+  console.warn(
+    `⚠️  IP ${ip} does not match any configured VLAN, using default broadcast`,
+  );
   return `${parts[0]}.${parts[1]}.${parts[2]}.255`;
 }
 
@@ -80,47 +127,55 @@ async function pingHosts(hosts) {
 }
 
 async function wakeHosts(hosts) {
-  // Si <= 10 hosts, tout d'un coup
+  // If <= 10 hosts, wake all at once
   if (hosts.length <= 10) {
     return await Promise.all(
       hosts.map(
         (h) =>
           new Promise((resolve) => {
-            wol.wake(h.mac, { address: getBroadcastAddress(h.ip) }, (err) => {
-              if (err) resolve({ ...h, awake: false, error: err.message });
-              else resolve({ ...h, awake: true });
-            });
+            wol.wake(
+              h.mac,
+              { address: getBroadcastAddress(h.ip), port: WOL_PORT },
+              (err) => {
+                if (err) resolve({ ...h, awake: false, error: err.message });
+                else resolve({ ...h, awake: true });
+              },
+            );
           }),
       ),
     );
   }
 
-  // Si > 10 hosts, par blocs de 5 avec 1 min de délai
+  // If > 10 hosts, wake in blocks of 5 with 1 minute delay
   const results = [];
   for (let i = 0; i < hosts.length; i += 5) {
     const block = hosts.slice(i, i + 5);
 
     console.log(
-      `Réveil du bloc ${Math.floor(i / 5) + 1} (${block.length} hosts)...`,
+      `Waking block ${Math.floor(i / 5) + 1} (${block.length} hosts)...`,
     );
 
     const blockResults = await Promise.all(
       block.map(
         (h) =>
           new Promise((resolve) => {
-            wol.wake(h.mac, { address: getBroadcastAddress(h.ip) }, (err) => {
-              if (err) resolve({ ...h, awake: false, error: err.message });
-              else resolve({ ...h, awake: true });
-            });
+            wol.wake(
+              h.mac,
+              { address: getBroadcastAddress(h.ip), port: WOL_PORT },
+              (err) => {
+                if (err) resolve({ ...h, awake: false, error: err.message });
+                else resolve({ ...h, awake: true });
+              },
+            );
           }),
       ),
     );
 
     results.push(...blockResults);
 
-    // Attendre 1 min sauf pour le dernier bloc
+    // Wait 1 minute except for the last block
     if (i + 5 < hosts.length) {
-      console.log(`Pause de 1 minute avant le prochain bloc...`);
+      console.log(`Pausing 1 minute before next block...`);
       await new Promise((resolve) => setTimeout(resolve, 60000));
     }
   }
@@ -145,7 +200,7 @@ async function shutdownHosts(hosts) {
 app.post("/api/action", async (req, res) => {
   const { type, name, action } = req.body;
   if (!type || !name || !action)
-    return res.status(400).json({ error: "Faltan parámetros" });
+    return res.status(400).json({ error: "Missing parameters" });
 
   const allHosts = parseDhcp();
   let requestedIds = [];
@@ -175,7 +230,7 @@ app.post("/api/action", async (req, res) => {
         return new Promise((resolve) => {
           wol.wake(
             host.mac,
-            { address: getBroadcastAddress(host.ip) },
+            { address: getBroadcastAddress(host.ip), port: WOL_PORT },
             (err) => {
               if (err)
                 resolve({
@@ -216,4 +271,12 @@ app.post("/api/action", async (req, res) => {
 app.listen(PORT, HOST, () => {
   console.log(`🚀 API WOL at http://${HOST}:${PORT}`);
   console.log(`   ✅ Reachable from: localhost:${PORT}, any IPs on server`);
+  console.log(`\n📋 VLAN Configuration:`);
+  VLAN_CONFIG.forEach((vlan, idx) => {
+    console.log(`   ${idx + 1}. ${vlan.description}`);
+    console.log(
+      `      Subnets: 172.18.${vlan.subnetStart}.0 - 172.18.${vlan.subnetEnd}.0`,
+    );
+    console.log(`      Broadcast: ${vlan.broadcastAddress}`);
+  });
 });
