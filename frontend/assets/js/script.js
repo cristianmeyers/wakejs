@@ -364,8 +364,8 @@ async function handleAction(action) {
     const data = await res.json();
 
     if (action === "awake") {
-      alert("Signal Wake-on-LAN envoyé ! Rafraîchissement dans 20s...");
-      setTimeout(fetchHosts, 20000);
+      alert("Signal Wake-on-LAN envoyé ! Rafraîchissement dans 40s...");
+      setTimeout(fetchHosts, 40000);
     } else {
       renderHosts(data.results);
     }

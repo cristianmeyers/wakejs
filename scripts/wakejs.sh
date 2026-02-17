@@ -1,6 +1,6 @@
 #!/bin/bash
 
-API_URL="http://localhost:3000/api/action"
+API_URL="http://brwake.univ-brest.fr:3000/api/action"
 
 # Colors
 GREEN="\e[32m"
