@@ -1,28 +1,16 @@
 {
-  "app": {
-    "name": "NetAdmin",
-    "version": "1.0.0",
-    "debug": true
-  },
-
   "api": {
-    "baseUrl": "/api",
+    "baseUrl": "http://127.0.0.1:3000",
     "timeout": 15000
   },
-
   "ui": {
     "theme": "light",
     "autoRefresh": true,
     "refreshInterval": 40000,
     "awakeRefreshDelay": 40000
   },
-
   "sites": {
-    "brest": {
-      "enabled": true
-    },
-    "morlaix": {
-      "enabled": false
-    }
+    "brest": { "enabled": true },
+    "morlaix": { "enabled": false }
   }
 }
