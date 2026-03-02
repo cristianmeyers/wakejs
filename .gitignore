@@ -1,2 +1,4 @@
 backend/config/dhcpd.conf
 backend/node_modules/backend/.env
+backend/.env
+backend/node_modules/
