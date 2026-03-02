@@ -5,35 +5,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WAKEJS</title>
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-    <!-- CSS -->
     <link rel="stylesheet" href="assets/style/style.css">
 </head>
 
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
     <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white py-8 shadow-xl mb-8">
         <div class="container mx-auto px-4">
-            <h1 class="text-4xl font-extrabold tracking-tight">
-                Wake<span class="text-blue-400">JS</span> – Gestion centralisée
-            </h1>
-            <p class="text-blue-100 mt-2 text-lg">
-                Démarrage centralisée du parc informatique
-            </p>
+            <h1 class="text-4xl font-extrabold tracking-tight">Wake<span class="text-blue-400">JS</span></h1>
         </div>
-
     </header>
 
     <main class="container mx-auto px-4 pb-12">
         <section class="mb-10">
             <h2 class="text-xl font-semibold mb-4 flex items-center">
                 <span
-                    class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-2 text-sm">1</span>
-                Choisir un Département
+                    class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center mr-2 text-sm">1</span>
+                Département
             </h2>
             <select id="departement"
-                class="w-full md:w-1/3 bg-white border border-gray-300 rounded-lg px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                class="w-full md:w-1/3 bg-white border border-gray-300 rounded-lg px-4 py-3 shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">-- Sélectionner --</option>
             </select>
         </section>
@@ -41,44 +33,34 @@
         <section id="sectionSalles" class="mb-10 hidden">
             <h2 class="text-xl font-semibold mb-4 flex items-center">
                 <span
-                    class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-2 text-sm">2</span>
-                Sélectionner une Salle
+                    class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center mr-2 text-sm">2</span>
+                Salle
             </h2>
-            <div id="sallesGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-            </div>
+            <div id="sallesGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3"></div>
         </section>
 
         <section id="sectionHosts" class="hidden">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6 border-t pt-8">
-                <h2 class="text-xl font-semibold flex items-center mb-4 md:mb-0">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 border-t border-gray-200 pt-8">
+                <h2 class="text-xl font-semibold flex items-center">
                     <span
-                        class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-2 text-sm">3</span>
-                    Machines dans la salle <span id="labelSalle" class="ml-2 text-blue-600">--</span>
+                        class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center mr-2 text-sm">3</span>
+                    Machines : <span id="labelSalle" class="text-blue-600 ml-2">--</span>
                 </h2>
-
                 <div class="flex gap-2">
                     <button id="pingBtn"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow transition-all flex items-center">
-                        <i class="fas fa-sync-alt mr-2"></i> Actualiser (Ping)
-                    </button>
+                        class="bg-blue-600 text-white px-5 py-2 rounded-lg transition-transform active:scale-95"><i
+                            class="fas fa-sync-alt mr-2"></i> Ping</button>
                     <button id="wakeBtn"
-                        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg shadow transition-all flex items-center">
-                        <i class="fas fa-power-off mr-2"></i> Wake-on-LAN
-                    </button>
+                        class="bg-green-600 text-white px-5 py-2 rounded-lg transition-transform active:scale-95"><i
+                            class="fas fa-power-off mr-2"></i> Wake</button>
                 </div>
             </div>
-
-            <div id="hostsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 text-center">
-            </div>
+            <div id="hostsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4"></div>
         </section>
     </main>
 
-    <!-- UI Logic -->
-    <script src="assets/js/script.js"></script>
-    <!-- API -->
-    <script src="assets/js/api.js"></script>
-
-
+    <script type="module" src="assets/js/api.js"></script>
+    <script type="module" src="assets/js/ui.js"></script>
 </body>
 
 </html>

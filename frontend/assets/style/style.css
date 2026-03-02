@@ -44,6 +44,5 @@ html {
 .selected-room {
   border-color: #3b82f6 !important;
   background-color: #eff6ff !important;
-  ring: 2px;
-  ring-color: #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6;
 }
