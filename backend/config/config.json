@@ -1,0 +1,18 @@
+{
+  "wolPort": 9,
+  "includeHashSpace": false,
+  "vlans": [
+    {
+      "subnetStart": 53,
+      "subnetEnd": 59,
+      "broadcastAddress": "172.18.60.255",
+      "description": "Vlan Gestion"
+    },
+    {
+      "subnetStart": 240,
+      "subnetEnd": 247,
+      "broadcastAddress": "172.18.240.255",
+      "description": "Vlan Enseignement"
+    }
+  ]
+}
