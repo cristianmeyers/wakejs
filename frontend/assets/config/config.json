@@ -4,7 +4,7 @@
     "timeout": 15000
   },
   "ui": {
-    "theme": "light",
+    "theme": "manual",
     "autoRefresh": true,
     "refreshInterval": 40000,
     "awakeRefreshDelay": 40000

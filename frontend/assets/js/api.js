@@ -7,7 +7,6 @@ export async function callApi(type, name, action) {
   const config = await getConfig();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), config.api.timeout);
-
   try {
     const res = await fetch(`${config.api.baseUrl}/api/action`, {
       method: "POST",
@@ -26,4 +25,13 @@ export async function callApi(type, name, action) {
 export async function fetchHostsData(salle) {
   const data = await callApi("Room", salle, "ping");
   return data.results;
+}
+
+export async function searchHosts(query) {
+  const config = await getConfig();
+  const res = await fetch(
+    `${config.api.baseUrl}/api/search?q=${encodeURIComponent(query)}`,
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }

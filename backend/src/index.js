@@ -1,7 +1,7 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 const express = require("express");
 const fs = require("fs");
-const path = require("path");
 const ping = require("ping");
 const wol = require("wol");
 const { exec } = require("child_process");
@@ -24,23 +24,18 @@ const { wolPort, vlans, includeHashSpace } = apiConfig;
 function parseDhcp() {
   const absoluteDhcpPath = path.resolve(__dirname, "..", DHCP_PATH);
   if (!fs.existsSync(absoluteDhcpPath)) return [];
-
   const content = fs.readFileSync(absoluteDhcpPath, "utf8");
   const hosts = [];
-
   const roomRegex = includeHashSpace ? /#\s+(\S+)/ : /#(\S+)/;
 
   content.split("\n").forEach((line) => {
     line = line.trim();
     if (!line.startsWith("host ")) return;
-
     const name = line.match(/host\s+([\w-]+)/i)?.[1];
     const mac = line.match(/hardware ethernet\s+([0-9a-f:]+)/i)?.[1];
     const ip = line.match(/fixed-address\s+([\d.]+)/i)?.[1];
-
     const roomMatch = line.match(roomRegex);
     const room = roomMatch ? roomMatch[1] : null;
-
     if (name && mac && ip && room) {
       hosts.push({ id: name, mac: mac.toLowerCase(), ip, room });
     }
@@ -60,41 +55,19 @@ function getBroadcast(ip) {
     : `${parts[0]}.${parts[1]}.${parts[2]}.255`;
 }
 
-async function wakeBatch(hosts) {
-  if (hosts.length > 10) {
-    let results = [];
-    for (let i = 0; i < hosts.length; i += 5) {
-      const block = hosts.slice(i, i + 5);
-      const res = await Promise.all(
-        block.map(
-          (h) =>
-            new Promise((r) =>
-              wol.wake(
-                h.mac,
-                { address: getBroadcast(h.ip), port: wolPort },
-                (err) => r({ ...h, awake: !err }),
-              ),
-            ),
-        ),
-      );
-      results.push(...res);
-      if (i + 5 < hosts.length) await new Promise((r) => setTimeout(r, 60000));
-    }
-    return results;
-  }
-  return Promise.all(
-    hosts.map(
-      (h) =>
-        new Promise((r) =>
-          wol.wake(
-            h.mac,
-            { address: getBroadcast(h.ip), port: wolPort },
-            (err) => r({ ...h, awake: !err }),
-          ),
-        ),
-    ),
-  );
-}
+// --- Routes ---
+
+app.get("/api/health", (req, res) => res.sendStatus(200));
+
+app.get("/api/search", (req, res) => {
+  const query = req.query.q?.toLowerCase();
+  if (!query) return res.json([]);
+  const allHosts = parseDhcp();
+  const results = allHosts
+    .filter((h) => h.id.toLowerCase().includes(query))
+    .slice(0, 5);
+  res.json(results);
+});
 
 app.post("/api/action", async (req, res) => {
   const { type, name, action } = req.body;
@@ -115,7 +88,18 @@ app.post("/api/action", async (req, res) => {
   }
 
   if (action === "awake") {
-    const results = await wakeBatch(targets);
+    const results = await Promise.all(
+      targets.map(
+        (h) =>
+          new Promise((r) =>
+            wol.wake(
+              h.mac,
+              { address: getBroadcast(h.ip), port: wolPort },
+              (err) => r({ ...h, awake: !err }),
+            ),
+          ),
+      ),
+    );
     return res.json({ action, results });
   }
 
@@ -135,6 +119,4 @@ app.post("/api/action", async (req, res) => {
   res.status(400).json({ error: "Unknown action" });
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 API: http://${HOST}:${PORT}`);
-});
+app.listen(PORT, HOST, () => console.log(`🚀 API: http://${HOST}:${PORT}`));
