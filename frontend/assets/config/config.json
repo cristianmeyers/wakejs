@@ -1,6 +1,6 @@
 {
   "api": {
-    "baseUrl": "http://brwake.univ-brest.fr:3000",
+    "baseUrl": "http://localhost:3000",
     "timeout": 15000
   },
   "ui": {

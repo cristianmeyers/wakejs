@@ -1,6 +1,18 @@
 {
+  "statusCheckInterval": 30,
+  "delayBetweenWakes": 1,
   "wolPort": 9,
+  "wolBatchSize": 5,
   "includeHashSpace": false,
+  "sshTimeout": 5,
+  "windowsDefaultUser": "administrateur",
+  "linuxDefaultUser": "si",
+  "jwtExpiration": "8h",
+  "adConfig": {
+    "url": "ldap://172.18.60.50",
+    "baseDN": "dc=iutb,dc=univ-brest,dc=fr",
+    "domainSuffix": "@iutb.univ-brest.fr"
+  },
   "vlans": [
     {
       "subnetStart": 53,
