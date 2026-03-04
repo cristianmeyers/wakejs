@@ -76,3 +76,16 @@ html {
   background-color: #eff6ff !important;
   color: #1d4ed8 !important;
 }
+
+.os-choice.active {
+  border-color: #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.os-choice.active i {
+  color: #3b82f6 !important;
+}
+
+.os-choice.active span {
+  color: #3b82f6 !important;
+}

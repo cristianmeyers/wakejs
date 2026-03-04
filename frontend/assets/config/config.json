@@ -6,8 +6,9 @@
   "ui": {
     "theme": "manual",
     "autoRefresh": true,
-    "refreshInterval": 40000,
-    "awakeRefreshDelay": 40000
+    "refreshInterval": 45000,
+    "awakeRefreshDelay": 40000,
+    "shutdownRefreshDelay": 10000
   },
   "sites": {
     "brest": { "enabled": true },

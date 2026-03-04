@@ -1,108 +1,81 @@
-# 🖥️ WakeJS — Gestion centralisée du Wake-on-LAN
+# 🖥️ WakeJS — Full-Stack Wake-on-LAN Management
 
-> Application web pour le démarrage à distance centralisé d’un parc informatique, organisé par département et salle, via une API REST et une interface frontend dynamique.
+> Solution complète pour le réveil, la surveillance et l'administration à distance de parcs informatiques hétérogènes (Brest/Morlaix), utilisant une API Node.js et une interface web réactive.
 
----
+## 📂 Structure du Projet
 
-## 📋 Aperçu
-
-**WakeJS** est un outil full-stack conçu pour gérer l’allumage à distance des postes de travail sur un campus multi-bâtiments. Il combine une **API REST Node.js** avec un **frontend web dynamique**, permettant aux administrateurs de réveiller, pinguer ou éteindre des machines organisées par département et salle — sans aucun accès physique.
-
-Le système lit la configuration des hôtes depuis un fichier modèle DHCP et envoie des **paquets magiques Wake-on-LAN** sur le réseau, avec une résolution intelligente des adresses broadcast adaptée aux VLAN.
-
----
-
-## 🏗️ Architecture
-
-```
-wakejs/
-├── backend/
-│   ├── config/
-│   │   └── dhcp-template.conf     # Définitions des hôtes (MAC, IP, salle)
-│   └── src/
-│       └── index.js               # API REST Express
-├── frontend/
-│   ├── index.html                 # Interface principale
+```text
+.
+├── backend/                # API REST Node.js
+│   ├── src/                # Logique serveur (Express, WoL, SSH)
+│   ├── config/             # Template DHCP (dhcpd.conf)
+│   └── .env                # Variables d'environnement (Ports, Secrets)
+├── frontend/               # Interface Web (SPA)
+│   ├── index.html          # Point d'entrée unique
 │   └── assets/
-│       ├── js/script.js           # Logique frontend dynamique
-│       └── style/style.css        # Styles personnalisés
-└── scripts/
-    ├── wakejs.sh                  # Script de démarrage
-    └── diagnostic.sh             # Utilitaire de diagnostic
+│       ├── config/         # Fichiers de configuration (JSON)
+│       ├── js/             # Architecture modulaire ES6
+│       └── style/          # Design Tailwind CSS & Mode sombre
+└── scripts/                # Utilitaires de déploiement et diagnostic
+
 ```
 
 ---
 
-## ⚙️ Stack technique
+## 🚀 Fonctionnalités Clés
 
-| Couche              | Technologie                       |
-| ------------------- | --------------------------------- |
-| Backend             | Node.js, Express                  |
-| Frontend            | HTML, Tailwind CSS, Vanilla JS    |
-| Réseau              | Wake-on-LAN (UDP), ICMP Ping, SSH |
-| Gestion des hôtes   | Analyse de config DHCP            |
-| Contrôle à distance | SSH (`sudo shutdown`)             |
+### 🔒 Sécurité & Accès
 
-**Packages npm clés :**
+- **Authentification JWT** : Protection des routes API et session persistante.
+- **Smart SSH Modal** : Interface personnalisée pour l'extinction des machines (Windows/Linux) avec gestion des identifiants et injection de clés.
 
-- `wol` — Génération de paquets magiques
-- `ping` — Vérification de disponibilité des hôtes
-- `express` — Serveur API REST
-- `cors` — Support cross-origin
+### 📡 Gestion Réseau
 
----
+- **Wake-on-LAN Intelligent** : Résolution automatique des adresses broadcast selon les VLANs (Primaire/Secondaire).
+- **Batching WoL** : Envoi par blocs pour éviter la saturation réseau sur les grandes salles (>10 hôtes).
+- **Multi-site** : Support natif pour plusieurs sites géographiques (Brest, Morlaix).
 
-## 🌐 Architecture réseau
+### 🎨 Interface Utilisateur (UI)
 
-L’application gère deux VLAN avec leurs adresses broadcast respectives :
-
-| VLAN       | Plage de sous-réseau            | Adresse broadcast |
-| ---------- | ------------------------------- | ----------------- |
-| Primaire   | `172.18.53.0` → `172.18.59.0`   | `172.18.60.255`   |
-| Secondaire | `172.18.240.0` → `172.18.247.0` | `172.18.240.255`  |
-
-L’API résout automatiquement l’adresse broadcast correcte en fonction de l’IP de chaque hôte, garantissant que les paquets magiques atteignent le bon segment VLAN.
+- **États de Transition** : Visualisation "Naranja Pulse" (Orange) pendant le boot des machines.
+- **Recherche Globale** : Moteur de recherche avec "téléportation" vers la salle correspondante.
+- **Config-Driven UI** : Comportement piloté par JSON (délais, thèmes, sites activés).
 
 ---
 
-## 🚀 Démarrage
+## ⚙️ Configuration & Installation
 
-### Prérequis
+### 1. Backend
 
-- Node.js ≥ 18
-- Accès SSH aux machines gérées (pour l’arrêt)
-- Le serveur doit être sur le même réseau que les machines cibles
-- Wake-on-LAN activé dans le BIOS des machines cibles
-
-### Installation
+Installer les dépendances et configurer le fichier DHCP :
 
 ```bash
-git clone https://github.com/your-username/wakejs.git
-cd wakejs/backend
+cd backend
 npm install
+
 ```
 
-### Configuration
-
-Créer le fichier DHCP des hôtes dans `backend/config/dhcp-template.conf` :
+Le fichier `backend/config/dhcp-template.conf` doit suivre ce format :
 
 ```conf
-# Format : host <name> { hardware ethernet <mac>; fixed-address <ip>; } # <room>
 host pc-b101-01 { hardware ethernet aa:bb:cc:dd:ee:ff; fixed-address 172.18.55.10; } # B101
-host pc-b101-02 { hardware ethernet aa:bb:cc:dd:ee:f0; fixed-address 172.18.55.11; } # B101
+
 ```
 
-### Lancer le serveur
+### 2. Frontend
 
-```bash
-# Avec le script de démarrage
-bash scripts/wakejs.sh
+Le comportement de l'interface se règle dans `assets/config/config.json` :
 
-# Ou directement
-node backend/src/index.js
+```json
+{
+  "api": { "baseUrl": "http://localhost:3000", "timeout": 15000 },
+  "ui": {
+    "autoRefresh": true,
+    "refreshInterval": 45000,
+    "awakeRefreshDelay": 40000
+  }
+}
 ```
-
-L’API écoute par défaut sur `http://0.0.0.0:3000`.
 
 ---
 
@@ -110,113 +83,45 @@ L’API écoute par défaut sur `http://0.0.0.0:3000`.
 
 ### `POST /api/action`
 
-Déclenche une action sur un ou plusieurs hôtes.
-
-**Corps de la requête :**
+Exécute une commande sur une salle ou des hôtes précis.
 
 ```json
 {
   "type": "Room",
-  "name": "B101",
+  "name": "B319",
   "action": "awake"
 }
 ```
 
-| Champ    | Valeurs                                             | Description                  |
-| -------- | --------------------------------------------------- | ---------------------------- |
-| `type`   | `Room` / `Hosts`                                    | Mode de sélection des cibles |
-| `name`   | ID de salle ou IDs d’hôtes séparés par des virgules | Identifiant cible            |
-| `action` | `ping` / `awake` / `shutdown`                       | Action à effectuer           |
-
-**Exemple — Réveiller toutes les machines de la salle B101 :**
-
-```bash
-curl -X POST http://localhost:3000/api/action \
-  -H "Content-Type: application/json" \
-  -d '{"type": "Room", "name": "B101", "action": "awake"}'
-```
-
-**Exemple — Pinguer des hôtes spécifiques :**
-
-```bash
-curl -X POST http://localhost:3000/api/action \
-  -H "Content-Type: application/json" \
-  -d '{"type": "Hosts", "name": "pc-b101-01,pc-b101-02", "action": "ping"}'
-```
-
-**Réponse :**
-
-```json
-{
-  "action": "awake",
-  "count": 2,
-  "results": [
-    {
-      "id": "pc-b101-01",
-      "mac": "aa:bb:cc:dd:ee:ff",
-      "ip": "172.18.55.10",
-      "awake": true
-    },
-    {
-      "id": "pc-b101-02",
-      "mac": "aa:bb:cc:dd:ee:f0",
-      "ip": "172.18.55.11",
-      "awake": true
-    }
-  ]
-}
-```
+| Action     | Description                                  |
+| ---------- | -------------------------------------------- |
+| `ping`     | Vérification ICMP de l'état en ligne.        |
+| `awake`    | Envoi de paquets magiques (Port 9 UDP).      |
+| `shutdown` | Extinction via SSH (`sudo shutdown -h now`). |
 
 ---
 
-## 🖱️ Utilisation du frontend
+## 🧪 Architecture Réseau (VLANs)
 
-L’interface web guide l’utilisateur en 3 étapes :
+L'application gère nativement le routage des paquets magiques vers les segments appropriés :
 
-1. **Sélectionner un département** (SG, GB, GEA, GMP, GEII, GACOD, GC, FC, LBMS…)
-2. **Sélectionner une salle** dans la liste du département
-3. **Effectuer une action** sur les machines de cette salle :
-   - 🔵 **Ping** — Vérifier quelles machines sont en ligne
-   - 🟢 **Wake-on-LAN** — Envoyer des paquets magiques à toutes les machines
-   - 🔴 **Shutdown** — Éteindre les machines à distance via SSH
-
-Chaque machine est affichée sous forme de carte avec son état en ligne/hors ligne.
+| Segment             | Plage IP          | Broadcast WoL    |
+| ------------------- | ----------------- | ---------------- |
+| **VLAN Principal**  | `172.18.53.0/24`  | `172.18.60.255`  |
+| **VLAN Secondaire** | `172.18.240.0/24` | `172.18.240.255` |
 
 ---
 
-## 🔧 Logique de batching WoL
+## 🛠️ Incoming (Roadmap)
 
-Pour éviter de saturer le réseau lors du réveil de grandes salles, l’API utilise une stratégie de traitement par blocs :
-
-- **≤ 10 hôtes** → Tous les paquets envoyés simultanément
-- **> 10 hôtes** → Envoyés par blocs de 5, avec une pause d’une minute entre chaque bloc
-
----
-
-## 📁 Format de configuration DHCP
-
-Le fichier `dhcp-template.conf` suit la syntaxe ISC DHCP. Chaque hôte doit être sur **une seule ligne** :
-
-```conf
-# Les lignes commençant par # sont ignorées
-host <hostname> { hardware ethernet <mac>; fixed-address <ip>; } # <room>
-```
-
-- `<hostname>` — Identifiant unique de l’hôte
-- `<mac>` — Adresse MAC au format `aa:bb:cc:dd:ee:ff`
-- `<ip>` — Adresse IP statique
-- `# <room>` — Tag de salle (utilisé pour filtrer par salle)
-
----
-
-## 🔒 Exigences & contraintes
-
-- Le serveur doit avoir le **port UDP 9** ouvert en sortie pour les paquets WoL
-- L’authentification SSH sans mot de passe doit être configurée pour l’utilisateur `user` sur les machines gérées pour que l’arrêt fonctionne
-- Les paquets broadcast doivent être autorisés par les switches/routeurs entre VLANs
+- **🎨 OS-Specific Icons** : Identification automatique et affichage des logos Windows/Linux sur les cartes.
+- **📊 Global Dashboard Stats** : Graphiques de disponibilité globale par département sur la page d'accueil.
+- **📜 Live Action Logs** : Console d'activité en temps réel affichant les succès/échecs des commandes.
+- **⏳ Scheduled Wake** : Programmation horaire pour l'allumage automatique des salles de TP.
+- **📱 Mobile PWA** : Optimisation pour une installation en tant qu'application mobile native.
 
 ---
 
 ## 📄 Licence
 
-MIT
+Distribué sous licence MIT.
