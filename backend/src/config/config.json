@@ -9,10 +9,12 @@
   "linuxDefaultUser": "si",
   "jwtExpiration": "8h",
   "adConfig": {
-    "url": "ldap://172.18.60.50",
-    "baseDN": "dc=iutb,dc=univ-brest,dc=fr",
-    "domainSuffix": "@iutb.univ-brest.fr"
-  },
+      "url": "ldap://172.18.60.50",
+      "searchBase": "dc=iutb,dc=univ-brest,dc=fr",
+      "authorizedOUs": ["ou=si,ou=Utilisateurs", "ou=si"],
+      "bannedOUs": [],
+      "domainSuffix": "@iutb.univ-brest.fr"
+    },
   "vlans": [
     {
       "subnetStart": 53,
