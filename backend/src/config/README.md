@@ -57,21 +57,21 @@ Fichier de configuration principal du serveur WakeJS, situé dans `backend/confi
 
 | Clé             | Type       | Description                                                                                       |
 | --------------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| `url`           | `string`   | URL du contrôleur de domaine LDAP (ex: `"ldap://172.18.60.50"`)                                   |
-| `searchBase`    | `string`   | Base DN pour la recherche LDAP (ex: `"dc=iutb,dc=univ-brest,dc=fr"`)                              |
+| `url`           | `string`   | URL du contrôleur de domaine LDAP (ex: `"ldap://192.18.60.50"`)                                   |
+| `searchBase`    | `string`   | Base DN pour la recherche LDAP (ex: `"dc=sioa,dc=univ-brest,dc=fr"`)                              |
 | `authorizedOUs` | `string[]` | Liste des OUs autorisées à se connecter. Un utilisateur doit appartenir à au moins une de ces OUs |
 | `bannedOUs`     | `string[]` | Liste des OUs explicitement interdites, même si elles correspondent à une OU autorisée            |
-| `domainSuffix`  | `string`   | Suffixe ajouté au nom d'utilisateur pour former le UPN LDAP (ex: `"@iutb.univ-brest.fr"`)         |
+| `domainSuffix`  | `string`   | Suffixe ajouté au nom d'utilisateur pour former le UPN LDAP (ex: `"@sioa.univ-brest.fr"`)         |
 
 **Exemple :**
 
 ```json
 "adConfig": {
-  "url": "ldap://172.18.60.50",
-  "searchBase": "dc=iutb,dc=univ-brest,dc=fr",
-  "authorizedOUs": ["ou=si,ou=Utilisateurs", "ou=si"],
+  "url": "ldap://192.168.160.57",
+  "searchBase": "dc=sio,dc=lan",
+  "authorizedOUs": ["ou=sio,ou=Utilisateurs"],
   "bannedOUs": [],
-  "domainSuffix": "@iutb.univ-brest.fr"
+  "domainSuffix": "@sio.lan"
 }
 ```
 
