@@ -1,87 +1,176 @@
-# 📡 WAKEJS | API Backend
+# Backend — WakeJS API
 
-Ce dossier contient l'API Node.js qui gère la logique de réveil (WoL), d'extinction (SSH) et l'analyse du parc informatique via le serveur DHCP.
+API REST Express qui expose les actions Wake-on-LAN, ping et arrêt SSH, avec authentification JWT via Active Directory (LDAP).
 
-## 🛠️ Pré-requis Système
+---
 
-Avant d'installer l'API, assurez-vous que le serveur dispose des outils suivants :
+## Prérequis système
 
-- **Node.js (v18+) & npm** : Environnement d'exécution et gestionnaire de paquets.
-- **sshpass** : Indispensable pour permettre à l'API d'envoyer des commandes SSH avec mot de passe de manière non-interactive.
-- _Installation sur Debian/Ubuntu_ : `sudo apt install sshpass`
+- **Node.js ≥ 18**
+- **`sshpass`** installé sur la machine qui héberge WakeJS :
+  ```bash
+  # Debian / Ubuntu
+  sudo apt install sshpass
 
-- **Accès Lecture au DHCP** : L'utilisateur qui lance l'API doit avoir les droits de lecture sur le fichier de configuration du serveur DHCP (généralement `/etc/dhcp/dhcpd.conf`).
+  # RHEL / CentOS
+  sudo yum install sshpass
+  ```
+- Accès réseau **UDP port 9** vers les machines cibles (paquets WoL)
+- Accès **LDAP** au contrôleur de domaine Active Directory
+- Les machines gérées doivent avoir un compte avec droits `sudo shutdown` sans mot de passe, ou un mot de passe fourni via le frontend SSH modal
 
-## 🚀 Installation & Lancement
+---
 
-1. **Installation des dépendances** :
+## Installation
 
 ```bash
+cd backend
 npm install
-
 ```
 
-2. **Configuration** :
+### Variables d'environnement (optionnelles)
 
-- Créez un fichier `.env` à la racine (voir les détails dans `src/config/README.md`).
-- Ajustez les paramètres techniques dans `src/config/config.json`.
+| Variable | Défaut | Description |
+|---|---|---|
+| `PORT` | `3000` | Port d'écoute du serveur |
+| `HOST` | `0.0.0.0` | Adresse d'écoute |
+| `LOG_DIR` | `./logs` | Répertoire des fichiers de log |
+| `JWT_SECRET` | — | Secret de signature des tokens JWT **(obligatoire en prod)** |
 
-3. **Lancement en production (avec PM2)** :
+Créer un fichier `.env` à la racine de `backend/` :
+
+```env
+PORT=3000
+HOST=0.0.0.0
+LOG_DIR=/var/log/wakejs
+JWT_SECRET=mon_secret_tres_long
+```
+
+---
+
+## Démarrage
 
 ```bash
-pm2 start src/index.js --name wakejs-api
+# Via le script projet
+bash ../scripts/wakejs.sh
 
+# Directement
+node src/index.js
 ```
 
-> [!TIP]
-> Pour plus de détails sur la personnalisation des ports, du LDAP ou du SSH, consultez **`src/config/README.md`**.
+---
 
-### 2. Backend Config : Fichier `backend/src/config/README.md`
+## Référence API
 
-# ⚙️ Configuration de l'API (Backend)
+Toutes les routes sauf `/api/health` et `/api/login` requièrent un header `Authorization: Bearer <token>`.
 
-Ce répertoire contient la logique de configuration interne du serveur.
+### `GET /api/health`
+Vérifie que le serveur est en ligne. Pas d'authentification requise.
 
-## 📄 Fichiers de Configuration
+**Réponse :**
+```json
+{ "status": "ok" }
+```
 
-### 1. `config.json`
+---
 
-Gère le comportement logique de l'API :
+### `POST /api/login`
+Authentification via Active Directory. Retourne un token JWT.
 
-- **`authEnabled`** : Active ou désactive la vérification LDAP/JWT.
-- **`ldap`** : Paramètres de connexion à l'Active Directory ou l'annuaire LDAP pour l'authentification des administrateurs.
-- **`ssh`** : Paramètres par défaut pour les commandes d'extinction (Port, Utilisateur).
+**Corps :**
+```json
+{
+  "username": "jdupont",
+  "password": "motdepasse"
+}
+```
 
-### 2. `dhcpd.conf`
+**Réponse :**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
 
-C'est la **source de vérité** de l'application. L'API analyse ce fichier en temps réel pour identifier les machines.
+---
 
-- **Format requis** : Chaque hôte doit comporter un commentaire à la fin de sa ligne avec le nom de la salle précédé d'un dièse (ex: `host pc01 { hardware ethernet ... } #B113`).
+### `GET /api/verify`
+Vérifie la validité du token JWT actuel.
 
-### 3. Variables d'environnement (`.env`)
+**Réponse :**
+```json
+{ "valid": true }
+```
 
-Données sensibles à ne pas inclure dans les fichiers JSON :
+---
 
-- **`JWT_SECRET`** : Clé secrète pour la signature des jetons de session.
-- **`SSH_PRIVATE_KEY_PATH`** : Chemin local vers la clé SSH privée du serveur pour automatiser l'extinction sans mot de passe.
+### `GET /api/search?q=<terme>`
+Recherche un hôte par nom, IP ou salle dans la configuration DHCP.
 
-### 3. Frontend Config : Fichier `frontend/assets/config/README.md`
+**Réponse :**
+```json
+[
+  { "id": "pc-b101-01", "ip": "172.18.55.10", "mac": "aa:bb:cc:dd:ee:ff", "room": "B101" }
+]
+```
 
-# ⚙️ Configuration de l'Interface (Frontend)
+---
 
-Ce répertoire permet de personnaliser l'interface utilisateur et de définir la structure du parc informatique.
+### `POST /api/action`
+Déclenche une action sur une salle ou des hôtes spécifiques.
 
-## 📄 Fichiers de Configuration
+**Corps :**
+```json
+{
+  "type": "Room",
+  "name": "B101",
+  "action": "awake"
+}
+```
 
-### 1. `config.json`
+| Champ | Valeurs | Description |
+|---|---|---|
+| `type` | `Room` / `Hosts` | Cibler une salle entière ou des hôtes précis |
+| `name` | Nom de salle ou IDs séparés par virgules | Identifiant de la cible |
+| `action` | `ping` / `awake` / `shutdown` | Action à effectuer |
 
-- **`api.baseUrl`** : Adresse IP ou nom de domaine du backend (ex: `http://localhost:3000`).
-- **`ui.autoRefresh`** : Active la mise à jour automatique de l'état des machines.
-- **`ui.refreshInterval`** : Temps d'attente (en ms) entre deux vérifications de statut (Ping).
+**Exemple — Réveiller une salle :**
+```bash
+curl -X POST http://localhost:3000/api/action \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "Room", "name": "B101", "action": "awake"}'
+```
 
-### 2. `rooms.json`
+**Réponse :**
+```json
+{
+  "action": "awake",
+  "count": 2,
+  "results": [
+    { "id": "pc-b101-01", "mac": "aa:bb:cc:dd:ee:ff", "ip": "172.18.55.10", "awake": true },
+    { "id": "pc-b101-02", "mac": "aa:bb:cc:dd:ee:f0", "ip": "172.18.55.11", "awake": true }
+  ]
+}
+```
 
-Définit la **structure de navigation** affichée sur le site.
+---
 
-- **Hiérarchie** : `Site > Département > Liste de Salles`.
-- **Cohérence** : Le nom des salles saisi ici (ex: `B113`) doit être identique au commentaire présent dans le fichier `dhcpd.conf` du backend pour que les actions (Wake/Off) fonctionnent.
+## Logique de batching WoL
+
+Pour éviter de saturer le réseau lors du réveil de grandes salles :
+
+- **≤ 10 hôtes** → tous les paquets envoyés simultanément
+- **> 10 hôtes** → envoyés par blocs de `wolBatchSize` (défaut : 5), avec `delayBetweenWakes` secondes entre chaque bloc
+
+---
+
+## Logs
+
+Les logs sont écrits dans `logs/wakejs-api.log` avec le format :
+
+```
+[DD/MM/YYYY HH:MM:SS] | METHOD   [ STATUS       ] [ USER          ] [ IP               ] [ ACTION   ] Target: ... | message
+```
+
+Chaque appel AUTH et ACTION est tracé avec l'IP du client, le statut et le détail de l'opération.
