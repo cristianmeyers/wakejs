@@ -1,5 +1,8 @@
-const fs = require("fs");
+const fs = require("fs").promises;
 const path = require("path");
+
+const logDirectory = process.env.LOG_DIR || path.join(process.cwd(), "logs");
+const logFilePath = path.join(logDirectory, "wakejs-api.log");
 
 const COLORS = {
   reset: "\x1b[0m",
@@ -11,50 +14,84 @@ const COLORS = {
   gray: "\x1b[90m",
 };
 
-const logDirectory = process.env.LOG_DIR || path.join(process.cwd(), "logs");
-const logFilePath = path.join(logDirectory, "wakejs-api.log");
-
-if (!fs.existsSync(logDirectory)) {
-  try {
-    fs.mkdirSync(logDirectory, { recursive: true });
-  } catch (err) {
-    console.error(`\x1b[31m[LOGGER_ERROR]\x1b[0m`, err);
-  }
-}
-
-const getTimestamp = () =>
-  new Date().toLocaleString("fr-FR", { hour12: false });
-
-const stripColors = (str) => str.replace(/\x1b\[[0-9;]*m/g, "");
-
-const saveToFile = (content) => {
-  try {
-    fs.appendFileSync(logFilePath, stripColors(content) + "\n");
-  } catch (err) {
-    console.error(`\x1b[31m[LOGGER_ERROR] Write failed\x1b[0m`);
-  }
+const getTimestamp = () => {
+  return new Date()
+    .toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    })
+    .replace(",", "");
 };
 
-const formatLog = (level, service, message, color) => {
-  const ts = `[${getTimestamp()}]`;
-  const svc = `[${service.padEnd(7)}]`;
-  const lvl = `${level.padEnd(7)}`;
+const formatColumn = (text, width) =>
+  (text || "").toString().padEnd(width).substring(0, width);
 
-  const consoleMsg = `${COLORS.gray}${ts}${COLORS.reset} ${COLORS.magenta}${svc}${COLORS.reset} ${color}${lvl}${COLORS.reset} | ${message}`;
-  console.log(consoleMsg);
+const writeLog = async (
+  method,
+  status,
+  user,
+  ip,
+  message,
+  action = "",
+  target = "",
+) => {
+  const ts = getTimestamp();
+  const mth = formatColumn(method, 8);
+  const sta = formatColumn(status, 12);
+  const usr = formatColumn(user, 15);
+  const net = formatColumn(ip, 18);
 
-  saveToFile(`${ts} ${svc} ${lvl} | ${message}`);
+  const actionPart = action ? ` [ ${formatColumn(action, 10)} ] ` : "";
+  const targetPart = target ? ` Target: ${target} | ` : "";
+
+  const line = `[${ts}] | ${mth} [ ${sta} ] [ ${usr} ] [ ${net} ]${actionPart}${targetPart}${message}`;
+
+  try {
+    await fs.appendFile(logFilePath, line + "\n");
+  } catch (err) {
+    console.error("Logger error:", err);
+  }
+
+  const color =
+    status.includes("FAILED") ||
+    status.includes("FORBID") ||
+    status.includes("ERROR") ||
+    status.includes("REJECTED")
+      ? COLORS.red
+      : status.includes("SUCCESS") || status.includes("OK")
+        ? COLORS.green
+        : COLORS.cyan;
+
+  console.log(
+    `${COLORS.gray}[${ts}]${COLORS.reset} | ${COLORS.magenta}${mth}${COLORS.reset} [ ${color}${sta}${COLORS.reset} ] [ ${usr} ] [ ${net} ]${actionPart}${targetPart}${message}`,
+  );
 };
 
 const logger = {
-  info: (svc, msg) => formatLog("INFO", svc, msg, COLORS.cyan),
-  success: (svc, msg) => formatLog("SUCCESS", svc, msg, COLORS.green),
-  warn: (svc, msg) => formatLog("WARN", svc, msg, COLORS.yellow),
-  error: (svc, msg, err = "") => {
-    formatLog("ERROR", svc, msg, COLORS.red);
-    if (err) {
-      saveToFile(`[${getTimestamp()}] [ERROR_DETAILS] | ${err}`);
-      console.error(`${COLORS.red}${err}${COLORS.reset}`);
+  auth: (status, user, ip, msg) =>
+    writeLog("AUTH", status, user, ip, ` ${msg}`),
+  action: (status, user, ip, action, target, msg) =>
+    writeLog("ACTION", status, user, ip, msg, action, target),
+  init: async () => {
+    try {
+      await fs.mkdir(logDirectory, { recursive: true });
+      const exists = await fs
+        .access(logFilePath)
+        .then(() => true)
+        .catch(() => false);
+      if (!exists) {
+        const header =
+          "---------------------------------------------------------------------------------------\n" +
+          "[        Date       ] | Method   [ Status       ] [ USER          ] [ IP               ]\n";
+        await fs.writeFile(logFilePath, header);
+      }
+    } catch (err) {
+      console.error("Logger init failed:", err);
     }
   },
 };

@@ -5,82 +5,55 @@ const sanitize = (str) => {
   return str.replace(/[^a-zA-Z0-9.@\-_,]/g, "").trim();
 };
 
-exports.validateLogin = (req, res, next) => {
+exports.validateLogin = async (req, res, next) => {
   const ip =
-    req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+    req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
   const { username, password } = req.body;
 
   if (!username || !password) {
-    logger.auth(
-      "FAILED",
-      "Unknown",
-      ip,
-      "Missing login fields",
-      logger.COLORS.red,
-    );
-    return res
-      .status(400)
-      .json({ error: "Username and password are required" });
+    await logger.auth("FAILED", "unknown", ip, "Missing credentials");
+    return res.status(400).json({ error: "Username and password required" });
   }
 
-  const cleanUser = sanitize(username);
-  if (cleanUser !== username) {
-    logger.auth(
-      "TRY",
-      "Unknown",
-      ip,
-      `Sanitized: ${username} -> ${cleanUser}`,
-      logger.COLORS.yellow,
-    );
-  }
-
-  req.body.username = cleanUser.substring(0, 50);
-
+  req.body.username = sanitize(username).substring(0, 50);
   if (!req.body.username) {
-    logger.auth(
-      "FAILED",
-      "Unknown",
-      ip,
-      "Invalid username format after sanitization",
-      logger.COLORS.red,
-    );
-    return res.status(400).json({ error: "Invalid username format" });
+    await logger.auth("FAILED", "unknown", ip, "Invalid username");
+    return res.status(400).json({ error: "Invalid username" });
   }
 
   next();
 };
 
-exports.validateAction = (req, res, next) => {
+exports.validateAction = async (req, res, next) => {
   const ip =
-    req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
-  const user = req.user?.username || "API";
-  const { type, name, action } = req.body;
+    req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
+  const user = req.user?.username || "api";
+  const { type, name, action, credentials } = req.body;
   const allowedActions = ["ping", "awake", "shutdown"];
 
   if (!type || !name || !action) {
-    logger.action(
+    await logger.action(
       "FAILED",
       user,
       ip,
       action || "none",
-      "Incomplete action parameters",
-      logger.COLORS.red,
+      "none",
+      "Missing parameters",
     );
-    return res.status(400).json({ error: "Missing action parameters" });
+    return res.status(400).json({ error: "Missing parameters" });
   }
 
   if (!allowedActions.includes(action)) {
-    logger.action(
-      "FORBID",
-      user,
-      ip,
-      action,
-      "Invalid action type denied",
-      logger.COLORS.red,
-    );
+    await logger.action("FORBID", user, ip, action, name, "Invalid action");
     return res.status(400).json({ error: "Invalid action type" });
   }
 
   req.body.name = sanitize(name);
+  if (credentials) {
+    if (credentials.user)
+      req.body.credentials.user = sanitize(credentials.user);
+    if (credentials.os) req.body.credentials.os = sanitize(credentials.os);
+  }
+
   next();
 };

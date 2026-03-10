@@ -9,11 +9,12 @@ const sshService = require("../services/sshServices");
 const JWT_SECRET = process.env.JWT_SECRET;
 const AUTH_ENABLED = process.env.AUTH_ENABLED === "true";
 
-exports.login = (req, res, config) => {
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+exports.login = async (req, res, config) => {
+  const ip =
+    req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
 
   if (!AUTH_ENABLED) {
-    logger.info("AUTH", `BYPASS  | IP: ${ip} | Mode: Guest Access`);
+    await logger.auth("SUCCESS", "anonymous", ip, "Bypass mode access");
     const token = jwt.sign(
       { username: "anonymous", method: "none" },
       JWT_SECRET,
@@ -23,7 +24,7 @@ exports.login = (req, res, config) => {
   }
 
   const { username, password } = req.body;
-  logger.info("AUTH", `TRY     | User: ${username} | IP: ${ip}`);
+  await logger.auth("TRY", username, ip, "Login attempt");
 
   const client = ldap.createClient({
     url: config.adConfig.url,
@@ -31,22 +32,14 @@ exports.login = (req, res, config) => {
     timeout: 5000,
   });
 
-  let responseSent = false;
   const upn = username.includes("@")
     ? username
     : `${username}${config.adConfig.domainSuffix}`;
 
-  client.bind(upn, password, (err) => {
-    if (responseSent) return;
-    if (err) {
-      responseSent = true;
-      logger.error(
-        "AUTH",
-        `FAILED  | User: ${username} | IP: ${ip} | Reason: Invalid Credentials`,
-      );
-      client.destroy();
-      return res.status(401).json({ error: "Authentication failed" });
-    }
+  try {
+    await new Promise((resolve, reject) => {
+      client.bind(upn, password, (err) => (err ? reject(err) : resolve()));
+    });
 
     const shortUsername = username.split("@")[0];
     const searchOptions = {
@@ -55,105 +48,74 @@ exports.login = (req, res, config) => {
       attributes: ["dn"],
     };
 
-    client.search(
-      config.adConfig.searchBase,
-      searchOptions,
-      (err, searchRes) => {
-        if (err) {
-          logger.error(
-            "AUTH",
-            `ERROR   | User: ${username} | IP: ${ip} | Search failed`,
-            err,
-          );
-          client.destroy();
-          return res.status(500).json({ error: "Directory search failed" });
-        }
-
-        let userFullDN = "";
-        searchRes.on("searchEntry", (entry) => {
-          userFullDN = entry.objectName
-            ? entry.objectName.toString()
-            : entry.dn.toString();
-        });
-
-        searchRes.on("error", (sErr) => {
-          if (!responseSent) {
-            responseSent = true;
-            logger.error(
-              "AUTH",
-              `LDAP ERR| User: ${username} | IP: ${ip}`,
-              sErr,
-            );
-            res.status(500).json({ error: "LDAP search error" });
-          }
-        });
-
-        searchRes.on("end", () => {
-          if (responseSent) return;
-          responseSent = true;
-
-          if (!userFullDN) {
-            logger.warn("AUTH", `NOTFOUND| User: ${username} | IP: ${ip}`);
-            client.unbind();
-            return res.status(404).json({ error: "User not found" });
-          }
-
-          const userDNLower = userFullDN.toLowerCase();
-          const banned = config.adConfig.bannedOUs || [];
-          const allowed = config.adConfig.authorizedOUs || [];
-
-          const isBanned = banned.some((ou) =>
-            userDNLower.includes(ou.toLowerCase()),
-          );
-          if (isBanned) {
-            logger.warn(
-              "AUTH",
-              `BANNED  | User: ${username} | IP: ${ip} | OU: ${userFullDN}`,
-            );
-            client.unbind();
-            return res.status(403).json({ error: "Access denied: Banned OU" });
-          }
-
-          const isAllAllowed = allowed
-            .map((ou) => ou.toLowerCase())
-            .includes("all");
-          const isAuthorized =
-            isAllAllowed ||
-            allowed.some((ou) => userDNLower.includes(ou.toLowerCase()));
-
-          if (!isAuthorized) {
-            logger.warn(
-              "AUTH",
-              `FORBID  | User: ${username} | IP: ${ip} | OU: ${userFullDN}`,
-            );
-            client.unbind();
-            return res
-              .status(403)
-              .json({ error: "Access denied: Unauthorized OU" });
-          }
-
-          logger.success(
-            "AUTH",
-            `SUCCESS | User: ${username} | IP: ${ip} | Token Issued`,
-          );
-          const token = jwt.sign({ username, method: "ad" }, JWT_SECRET, {
-            expiresIn: config.jwtExpiration || "8h",
+    const userFullDN = await new Promise((resolve, reject) => {
+      let dn = "";
+      client.search(
+        config.adConfig.searchBase,
+        searchOptions,
+        (err, searchRes) => {
+          if (err) return reject(err);
+          searchRes.on("searchEntry", (entry) => {
+            dn = entry.objectName
+              ? entry.objectName.toString()
+              : entry.dn.toString();
           });
+          searchRes.on("error", (sErr) => reject(sErr));
+          searchRes.on("end", () => resolve(dn));
+        },
+      );
+    });
 
-          client.unbind();
-          res.json({ token, method: "ad" });
-        });
-      },
-    );
-  });
+    if (!userFullDN) {
+      await logger.auth("FAILED", username, ip, "User not found in directory");
+      client.unbind();
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userDNLower = userFullDN.toLowerCase();
+    const banned = config.adConfig.bannedOUs || [];
+    const allowed = config.adConfig.authorizedOUs || [];
+
+    if (banned.some((ou) => userDNLower.includes(ou.toLowerCase()))) {
+      await logger.auth("FORBID", username, ip, `Banned OU: ${userFullDN}`);
+      client.unbind();
+      return res.status(403).json({ error: "Access denied: Banned OU" });
+    }
+
+    const isAuthorized =
+      allowed.map((ou) => ou.toLowerCase()).includes("all") ||
+      allowed.some((ou) => userDNLower.includes(ou.toLowerCase()));
+
+    if (!isAuthorized) {
+      await logger.auth(
+        "FORBID",
+        username,
+        ip,
+        `Unauthorized OU: ${userFullDN}`,
+      );
+      client.unbind();
+      return res.status(403).json({ error: "Access denied: Unauthorized OU" });
+    }
+
+    await logger.auth("SUCCESS", username, ip, "Token issued");
+    const token = jwt.sign({ username, method: "ad" }, JWT_SECRET, {
+      expiresIn: config.jwtExpiration || "8h",
+    });
+    client.unbind();
+    res.json({ token, method: "ad" });
+  } catch (err) {
+    await logger.auth("FAILED", username, ip, `Auth error: ${err.message}`);
+    client.destroy();
+    return res.status(401).json({ error: "Authentication failed" });
+  }
 };
 
-exports.search = (req, res, config) => {
+exports.search = async (req, res, config) => {
   const query = req.query.q?.toLowerCase();
   if (!query) return res.json([]);
 
-  const results = dhcpService
-    .parseDhcp(config)
+  const allHosts = await dhcpService.parseDhcp(config);
+  const results = allHosts
     .filter((h) => h.id.toLowerCase().includes(query))
     .slice(0, 5);
 
@@ -161,20 +123,18 @@ exports.search = (req, res, config) => {
 };
 
 exports.executeAction = async (req, res, config) => {
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  const ip =
+    req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
   const user = req.user?.username || "unknown";
   const { type, name, action, credentials } = req.body;
 
-  logger.info(
-    "ACTION",
-    `EXEC    | User: ${user} | Action: ${action} | Target: ${type}:${name} | IP: ${ip}`,
-  );
-
-  const allHosts = dhcpService.parseDhcp(config);
+  const allHosts = await dhcpService.parseDhcp(config);
   let targets =
     type === "Hosts"
       ? allHosts.filter((h) => name.split(",").includes(h.id))
       : allHosts.filter((h) => h.room.toLowerCase() === name.toLowerCase());
+
+  const targetLabel = `${type}:${name}`;
 
   if (action === "ping") {
     const results = await Promise.all(
@@ -182,6 +142,14 @@ exports.executeAction = async (req, res, config) => {
         const status = await ping.promise.probe(h.ip, { timeout: 2 });
         return { ...h, online: status.alive };
       }),
+    );
+    await logger.action(
+      "SUCCESS",
+      user,
+      ip,
+      action,
+      targetLabel,
+      `Pinged ${targets.length} hosts`,
     );
     return res.json({ action, results });
   }
@@ -192,25 +160,71 @@ exports.executeAction = async (req, res, config) => {
       config,
       dhcpService.getBroadcast,
     );
-    logger.success(
-      "ACTION",
-      `WOL     | Sent magic packets to ${targets.length} targets`,
+    await logger.action(
+      "SUCCESS",
+      user,
+      ip,
+      action,
+      targetLabel,
+      `Magic packets sent to ${targets.length} targets`,
     );
-    return res.json({ action, results });
+    return res.json({
+      action,
+      results,
+      message: "Use 'ping' action in 30 seconds to confirm status",
+    });
   }
 
   if (action === "shutdown") {
     const results = await Promise.all(
-      targets.map((h) => sshService.runShutdown(h, credentials, config)),
+      targets.map(async (h) => {
+        const probe = await ping.promise.probe(h.ip, { timeout: 2 });
+        if (!probe.alive) return { id: h.id, status: "OFFLINE", ip: h.ip };
+
+        if (!credentials?.password) {
+          if (config.alwaysPassOnShutdown)
+            return { id: h.id, status: "AUTH_REQUIRED", ip: h.ip };
+          const keyAttempt = await sshService.runShutdown(h, null, config);
+          if (keyAttempt.status === "OK") return keyAttempt;
+          return { id: h.id, status: "AUTH_REQUIRED", ip: h.ip };
+        }
+
+        return await sshService.runShutdown(h, credentials, config);
+      }),
     );
-    logger.success(
-      "ACTION",
-      `SSH     | Shutdown command sent to ${targets.length} targets`,
-    );
+
+    const authRequired = results.some((r) => r.status === "AUTH_REQUIRED");
+    if (authRequired) {
+      await logger.action(
+        "FORBID",
+        user,
+        ip,
+        action,
+        targetLabel,
+        "Authentication required for targets",
+      );
+    } else {
+      await logger.action(
+        "SUCCESS",
+        user,
+        ip,
+        action,
+        targetLabel,
+        `Shutdown initiated for ${targets.length} hosts`,
+      );
+    }
+
     return res.json({ action, results });
   }
 
-  logger.warn("ACTION", `UNKNOWN | Action: ${action} attempted by ${user}`);
+  await logger.action(
+    "FORBID",
+    user,
+    ip,
+    action,
+    targetLabel,
+    "Invalid action attempted",
+  );
   res.status(400).json({ error: "Unknown action" });
 };
 
