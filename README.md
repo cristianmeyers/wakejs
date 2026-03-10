@@ -1,127 +1,119 @@
-# 🖥️ WakeJS — Full-Stack Wake-on-LAN Management
+# 🖥️ WakeJS — Gestion centralisée Wake-on-LAN
 
-> Solution complète pour le réveil, la surveillance et l'administration à distance de parcs informatiques hétérogènes (Brest/Morlaix), utilisant une API Node.js et une interface web réactive.
+Application web full-stack pour le démarrage à distance d'un parc informatique, organisé par site, département et salle. Conçue pour les environnements multi-VLAN avec authentification Active Directory.
 
-## 📂 Structure du Projet
+---
 
-```text
-.
-├── backend/                # API REST Node.js
-│   ├── src/                # Logique serveur (Express, WoL, SSH)
-│   ├── config/             # Template DHCP (dhcpd.conf)
-│   └── .env                # Variables d'environnement (Ports, Secrets)
-├── frontend/               # Interface Web (SPA)
-│   ├── index.html          # Point d'entrée unique
+## Vue d'ensemble
+
+WakeJS permet aux administrateurs système de **réveiller, pinguer ou éteindre** des postes de travail à distance depuis une interface web, sans aucun accès physique. Le système lit la configuration des hôtes depuis un fichier DHCP et envoie des **paquets magiques Wake-on-LAN** sur le réseau local.
+
+```
+wakejs/
+├── backend/                  # API REST Node.js / Express
+│   ├── config/
+│   │   ├── config.json       # Configuration serveur (VLAN, SSH, AD, WoL)
+│   │   └── dhcp-template.conf  # Définitions des hôtes (MAC, IP, salle)
+│   └── src/
+│       ├── index.js          # Point d'entrée, bootstrap Express
+│       ├── routes/
+│       │   └── apiRoutes.js  # Déclaration des routes API
+│       ├── controllers/
+│       │   └── actionController.js
+│       ├── middlewares/
+│       │   ├── auth.js       # Vérification JWT
+│       │   └── validator.js  # Validation des payloads
+│       └── services/
+│           └── loggerService.js  # Logger fichier + console coloré
+├── frontend/                 # Interface web statique
+│   ├── index.html            # Page principale
 │   └── assets/
-│       ├── config/         # Fichiers de configuration (JSON)
-│       ├── js/             # Architecture modulaire ES6
-│       └── style/          # Design Tailwind CSS & Mode sombre
-└── scripts/                # Utilitaires de déploiement et diagnostic
-
+│       ├── js/
+│       │   ├── app.js        # Point d'entrée frontend
+│       │   ├── api.js        # Appels HTTP vers le backend
+│       │   ├── theme.js      # Gestion dark/light mode
+│       │   └── components/
+│       │       ├── navigation.js  # Sélection département/salle
+│       │       ├── hosts.js       # Rendu et actions sur les postes
+│       │       └── search.js      # Recherche globale
+│       ├── config/
+│       │   ├── config.json   # Configuration frontend (API, UI, sites)
+│       │   └── rooms.json    # Mapping départements → salles → hôtes
+│       └── style/
+│           └── style.css     # Styles personnalisés (complément Tailwind)
+└── scripts/
+    ├── wakejs.sh             # Script de démarrage
+    └── diagnostic.sh        # Utilitaire de diagnostic réseau
 ```
 
 ---
 
-## 🚀 Fonctionnalités Clés
+## Stack technique
 
-### 🔒 Sécurité & Accès
-
-- **Authentification JWT** : Protection des routes API et session persistante.
-- **Smart SSH Modal** : Interface personnalisée pour l'extinction des machines (Windows/Linux) avec gestion des identifiants et injection de clés.
-
-### 📡 Gestion Réseau
-
-- **Wake-on-LAN Intelligent** : Résolution automatique des adresses broadcast selon les VLANs (Primaire/Secondaire).
-- **Batching WoL** : Envoi par blocs pour éviter la saturation réseau sur les grandes salles (>10 hôtes).
-- **Multi-site** : Support natif pour plusieurs sites géographiques (Brest, Morlaix).
-
-### 🎨 Interface Utilisateur (UI)
-
-- **États de Transition** : Visualisation "Naranja Pulse" (Orange) pendant le boot des machines.
-- **Recherche Globale** : Moteur de recherche avec "téléportation" vers la salle correspondante.
-- **Config-Driven UI** : Comportement piloté par JSON (délais, thèmes, sites activés).
+| Couche | Technologie |
+|---|---|
+| Backend | Node.js, Express |
+| Auth | JWT + Active Directory (LDAP) |
+| Frontend | HTML, Tailwind CSS, Vanilla JS (ES Modules) |
+| Réseau | Wake-on-LAN (UDP), ICMP Ping, SSH |
+| Arrêt distant | `sshpass` + `sudo shutdown` |
+| Gestion des hôtes | Parsing de config DHCP ISC |
+| Logs | Fichier + console (coloré) |
 
 ---
 
-## ⚙️ Configuration & Installation
+## Architecture réseau
 
-### 1. Backend
+Le projet gère deux VLAN avec résolution automatique de l'adresse broadcast selon l'IP de chaque hôte :
 
-Installer les dépendances et configurer le fichier DHCP :
+| VLAN | Plage | Broadcast |
+|---|---|---|
+| Gestion | `172.18.53.x` → `172.18.59.x` | `172.18.60.255` |
+| Enseignement | `172.18.240.x` → `172.18.247.x` | `172.18.240.255` |
+
+---
+
+## Prérequis
+
+- Node.js ≥ 18
+- `sshpass` installé sur le serveur WakeJS
+- Accès réseau UDP port 9 (WoL) vers les machines cibles
+- Wake-on-LAN activé dans le BIOS des machines cibles
+- Accès LDAP au contrôleur de domaine Active Directory
+- Compte de service avec droits `sudo shutdown` sur les machines gérées
+
+---
+
+## Installation rapide
 
 ```bash
-cd backend
+git clone https://github.com/cristianmeyers/wakejs.git
+cd wakejs/backend
 npm install
-
 ```
 
-Le fichier `backend/config/dhcp-template.conf` doit suivre ce format :
+Configurer `backend/config/config.json` (VLAN, AD, SSH) puis :
 
-```conf
-host pc-b101-01 { hardware ethernet aa:bb:cc:dd:ee:ff; fixed-address 172.18.55.10; } # B101
-
+```bash
+bash scripts/wakejs.sh
 ```
 
-### 2. Frontend
-
-Le comportement de l'interface se règle dans `assets/config/config.json` :
-
-```json
-{
-  "api": { "baseUrl": "http://localhost:3000", "timeout": 15000 },
-  "ui": {
-    "autoRefresh": true,
-    "refreshInterval": 45000,
-    "awakeRefreshDelay": 40000
-  }
-}
-```
+L'API écoute par défaut sur `http://0.0.0.0:3000`.
 
 ---
 
-## 📡 Référence API
+## Documentation détaillée
 
-### `POST /api/action`
-
-Exécute une commande sur une salle ou des hôtes précis.
-
-```json
-{
-  "type": "Room",
-  "name": "B319",
-  "action": "awake"
-}
-```
-
-| Action     | Description                                  |
-| ---------- | -------------------------------------------- |
-| `ping`     | Vérification ICMP de l'état en ligne.        |
-| `awake`    | Envoi de paquets magiques (Port 9 UDP).      |
-| `shutdown` | Extinction via SSH (`sudo shutdown -h now`). |
+| Fichier | Description |
+|---|---|
+| [`backend/README.md`](backend/README.md) | Installation, variables d'environnement, référence API |
+| [`backend/config/README.md`](backend/config/README.md) | Options de `config.json` et format `dhcp-template.conf` |
+| [`frontend/README.md`](frontend/README.md) | Architecture frontend, composants, flux d'authentification |
+| [`frontend/assets/config/README.md`](frontend/assets/config/README.md) | Options de `config.json` et structure de `rooms.json` |
+| [`backend/src/README.md`](backend/src/README.md) | Rôle de chaque fichier source backend |
 
 ---
 
-## 🧪 Architecture Réseau (VLANs)
+## Licence
 
-L'application gère nativement le routage des paquets magiques vers les segments appropriés :
-
-| Segment             | Plage IP          | Broadcast WoL    |
-| ------------------- | ----------------- | ---------------- |
-| **VLAN Principal**  | `172.18.53.0/24`  | `172.18.60.255`  |
-| **VLAN Secondaire** | `172.18.240.0/24` | `172.18.240.255` |
-
----
-
-## 🛠️ Incoming (Roadmap)
-
-- **🎨 OS-Specific Icons** : Identification automatique et affichage des logos Windows/Linux sur les cartes.
-- **📊 Global Dashboard Stats** : Graphiques de disponibilité globale par département sur la page d'accueil.
-- **📜 Live Action Logs** : Console d'activité en temps réel affichant les succès/échecs des commandes.
-- **⏳ Scheduled Wake** : Programmation horaire pour l'allumage automatique des salles de TP.
-- **📱 Mobile PWA** : Optimisation pour une installation en tant qu'application mobile native.
-
----
-
-## 📄 Licence
-
-Distribué sous licence MIT.
+MIT
