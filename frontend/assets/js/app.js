@@ -28,7 +28,7 @@ async function checkApiHealth() {
 
 function setVisualStatus(isOnline) {
   if (isOnline) {
-    apiStatusText.textContent = "ONLINE";
+    apiStatusText.textContent = "EN LIGNE";
     apiStatusText.className =
       "text-[11px] font-mono font-black text-green-400 leading-none pt-0.5";
     apiStatusDot.className =
@@ -36,7 +36,7 @@ function setVisualStatus(isOnline) {
     apiStatusPing.className =
       "absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-ping";
   } else {
-    apiStatusText.textContent = "OFFLINE";
+    apiStatusText.textContent = "HORS LIGNE";
     apiStatusText.className =
       "text-[11px] font-mono font-black text-red-500 leading-none pt-0.5";
     apiStatusDot.className =
@@ -49,12 +49,17 @@ async function startApp() {
   try {
     config = await fetch("./assets/config/config.json").then((r) => r.json());
     roomsData = await fetch("./assets/config/rooms.json").then((r) => r.json());
+
+    initDashboard();
     checkApiHealth();
-    const isAuthed = await verifyToken();
-    if (!isAuthed) showLogin();
-    else initDashboard();
+    setInterval(checkApiHealth, 30000);
+
+    if (config.api.authEnabled) {
+      const isAuthed = await verifyToken();
+      if (!isAuthed) showLogin();
+    }
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Critical Start Error:", err);
   }
 }
 
@@ -69,7 +74,6 @@ function showLogin() {
         document.getElementById("password").value,
       );
       loginOverlay.classList.add("hidden");
-      initDashboard();
     } catch (err) {
       loginError.classList.remove("hidden");
     }
@@ -96,21 +100,12 @@ function handleSalleSelection(salle) {
     autoRefreshInterval = setInterval(() => {
       const hasSelection =
         document.querySelectorAll(".host-card.ring-4").length > 0;
-      if (!hasSelection) {
-        HostComponent.refresh(salle);
-      }
+      if (!hasSelection) HostComponent.refresh(salle);
     }, config.ui.refreshInterval || 30000);
   }
 }
 
 function handleTeleport(site, dept, salle, hostId) {
-  const deptCards = document.querySelectorAll(".dept-card");
-  deptCards.forEach((c) => {
-    const isMatch = c.querySelector("h3").textContent === dept;
-    c.className = isMatch
-      ? "dept-card group bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 p-6 rounded-3xl cursor-pointer transition-all flex items-center gap-5 shadow-xl shadow-blue-500/10"
-      : "dept-card group bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 p-6 rounded-3xl cursor-pointer hover:border-blue-300 transition-all flex items-center gap-5 shadow-sm";
-  });
   document.getElementById("labelSalle").textContent = salle;
   handleSalleSelection(salle);
   setTimeout(() => {

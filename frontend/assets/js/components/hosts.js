@@ -105,7 +105,7 @@ export const HostComponent = {
                 </div>
                 <div class="font-black text-sm text-center pointer-events-none">${h.id}</div>
                 <div class="text-[9px] text-gray-400 mt-2 font-mono bg-gray-50 dark:bg-slate-900/50 px-3 py-1 rounded-full border border-gray-100 dark:border-slate-700 pointer-events-none uppercase">
-                    ${isPending ? "En cours..." : h.ip || "---"}
+                    ${isPending ? "EN ATTENTE..." : h.ip || "---"}
                 </div>
             `;
 
@@ -122,8 +122,13 @@ export const HostComponent = {
     const selectedElements = Array.from(hostsGrid.querySelectorAll(".ring-4"));
     const targetedIds = selectedElements.map((el) => el.dataset.hostId);
 
-    const type = targetedIds.length ? "Hosts" : "Room";
-    const name = targetedIds.length ? targetedIds.join(",") : salle;
+    const type = targetedIds.length > 0 ? "Hosts" : "Room";
+    const name = targetedIds.length > 0 ? targetedIds.join(",") : salle;
+
+    if (!name) {
+      console.error("Execute failed: No target (host or room) defined");
+      return;
+    }
 
     if (action === "awake" || action === "shutdown") {
       if (targetedIds.length > 0) {
@@ -133,56 +138,52 @@ export const HostComponent = {
           pendingHosts.add(el.dataset.hostId),
         );
       }
-      const currentData = Array.from(
-        hostsGrid.querySelectorAll(".host-card"),
-      ).map((el) => ({
-        id: el.dataset.hostId,
-        online: el.querySelector(".bg-green-500") !== null,
-        ip: el.querySelector(".font-mono").textContent.trim(),
-      }));
-      this.render(currentData);
+      this.refresh(salle);
     }
 
-    const btn = document.getElementById(`${action}Btn`);
-    const original = btn.innerHTML;
+    const btn = document.getElementById(
+      `${action === "awake" ? "wake" : action}Btn`,
+    );
+    if (!btn) return;
+
+    const originalContent = btn.innerHTML;
     btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
     btn.disabled = true;
 
     try {
       let response = await callApi(type, name, action);
 
-      const authReq = response.results?.find(
-        (r) => r.status === "AUTH_REQUIRED",
-      );
-      if (authReq) {
+      if (response.results?.some((r) => r.status === "AUTH_REQUIRED")) {
         const creds = await getSshCredentials();
         if (creds) await callApi(type, name, action, creds);
       }
 
-      const delay =
-        action === "awake" ? config.ui.awakeRefreshDelay || 40000 : 5000;
+      const refreshDelay =
+        action === "awake"
+          ? config.ui.awakeRefreshDelay || 40000
+          : config.ui.shutdownRefreshDelay || 10000;
 
       setTimeout(() => {
-        if (targetedIds.length > 0)
-          targetedIds.forEach((id) => pendingHosts.delete(id));
-        else pendingHosts.clear();
+        pendingHosts.clear();
         this.refresh(salle);
-      }, delay);
+      }, refreshDelay);
     } catch (e) {
-      alert(e.message);
+      alert(`Erreur API: ${e.message}`);
       pendingHosts.clear();
       this.refresh(salle);
     } finally {
-      btn.innerHTML = original;
+      btn.innerHTML = originalContent;
       btn.disabled = false;
     }
   },
 
   toggleSelectAll() {
     const cards = hostsGrid.querySelectorAll(".host-card");
-    const all = Array.from(cards).every((c) => c.classList.contains("ring-4"));
+    const allSelected = Array.from(cards).every((c) =>
+      c.classList.contains("ring-4"),
+    );
     cards.forEach((c) => {
-      if (all) {
+      if (allSelected) {
         c.classList.remove("ring-4", "ring-blue-500/30", "border-blue-500");
       } else {
         c.classList.add("ring-4", "ring-blue-500/30", "border-blue-500");

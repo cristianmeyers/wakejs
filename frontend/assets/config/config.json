@@ -1,7 +1,8 @@
 {
   "api": {
     "baseUrl": "http://localhost:3000",
-    "timeout": 15000
+    "timeout": 15000,
+    "authEnabled": true
   },
   "ui": {
     "theme": "manual",
