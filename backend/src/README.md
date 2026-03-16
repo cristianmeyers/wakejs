@@ -2,8 +2,6 @@
 
 Description rapide du rôle de chaque fichier dans `backend/src/`.
 
----
-
 ## Structure
 
 ```
@@ -20,15 +18,11 @@ src/
     └── loggerService.js
 ```
 
----
-
 ## Fichiers
 
 ### `index.js` — Point d'entrée
 
 Bootstrap de l'application Express. Charge `config.json`, initialise le logger, monte les routes et démarre le serveur sur `HOST:PORT`. Contient également le gestionnaire d'erreurs global qui intercepte les JSON malformés et les crashs non gérés.
-
----
 
 ### `routes/apiRoutes.js` — Déclaration des routes
 
@@ -42,8 +36,6 @@ Déclare les 5 routes de l'API et leur chaîne de middlewares :
 | `/search` | GET     | ✓ JWT | Recherche d'hôtes dans la config DHCP           |
 | `/action` | POST    | ✓ JWT | Exécution d'une action (ping / wake / shutdown) |
 
----
-
 ### `controllers/actionController.js` — Logique métier
 
 Contient les handlers pour chaque route. C'est ici que sont effectués :
@@ -55,13 +47,9 @@ Contient les handlers pour chaque route. C'est ici que sont effectués :
 - les arrêts SSH via `sshpass` + `sudo shutdown`
 - la recherche d'hôtes par nom / IP / salle
 
----
-
 ### `middlewares/auth.js` — Vérification JWT
 
 Middleware Express qui vérifie la présence et la validité du header `Authorization: Bearer <token>`. Rejette avec un `401` si le token est absent, expiré ou invalide. Injecte le payload décodé dans `req.user`.
-
----
 
 ### `middlewares/validator.js` — Validation des payloads
 
@@ -72,11 +60,9 @@ Valide les corps de requête avant de les passer aux controllers :
 
 Retourne un `400` avec un message d'erreur si la validation échoue.
 
----
-
 ### `services/loggerService.js` — Logger
 
-Service de log dual (fichier + console colorée). Expose deux méthodes :
+Service de log dual (fichier + console colorée). Expose trois méthodes :
 
 | Méthode                                                | Usage                                                                                    |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |

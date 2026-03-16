@@ -1,6 +1,6 @@
 #!/bin/bash
 
-API_URL="http://brwake.univ-brest.fr:3000/api/action"
+API_URL="..."
 
 # Colors
 function color() {
@@ -127,11 +127,10 @@ print_result() {
   if [ "$verbose" -eq 1 ]; then
     echo "$json" | jq
   else
-    # --- PARTE GRÁFICA MEJORADA ---
+
     echo -e "\n$(color "OPERATION RESULTS:" "1")"
     echo -e "$(color "----------------------------------------------------" "2")"
 
-    # Definimos el escape para que JQ lo use correctamente
     ESC=$(printf '\033')
 
     echo "$json" | jq -r --arg esc "$ESC" '
@@ -167,7 +166,7 @@ case "$TYPE" in
       echo -e "$(color "Error: Room name is missing" "31")"
       usage
     fi
-    # Nota: el script original usa $ACTION tal cual. Si el usuario escribe "wake", se envía "wake".
+
     DATA="{\"type\":\"Room\",\"name\":\"$ROOM_NAME\",\"action\":\"$ACTION\"}"
     JSON_RESULT=$(call_api "$DATA")
     print_result "$ACTION" "$VERBOSE" "$JSON_RESULT"

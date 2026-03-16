@@ -2,8 +2,6 @@
 
 Fichier de configuration principal du serveur WakeJS, situé dans `backend/config/config.json`.
 
----
-
 ## Référence complète
 
 ```json
@@ -23,8 +21,6 @@ Fichier de configuration principal du serveur WakeJS, situé dans `backend/confi
 }
 ```
 
----
-
 ## Options
 
 ### Général
@@ -38,8 +34,6 @@ Fichier de configuration principal du serveur WakeJS, situé dans `backend/confi
 | `includeHashSpace`    | `boolean` | `false` | Si `true`, inclut un espace avant le `#` lors du parsing du fichier DHCP. À activer si ton fichier DHCP utilise le format ` # SALLE` avec espace avant le dièse |
 | `jwtExpiration`       | `string`  | `"8h"`  | Durée de validité des tokens JWT (format `jsonwebtoken` : `"8h"`, `"1d"`, `"30m"`)                                                                              |
 
----
-
 ### SSH (arrêt distant)
 
 | Clé                    | Type      | Défaut             | Description                                                                                                                      |
@@ -51,8 +45,6 @@ Fichier de configuration principal du serveur WakeJS, situé dans `backend/confi
 
 > **Note :** WakeJS utilise `sshpass` pour l'authentification SSH par mot de passe. Le mot de passe est saisi via le modal SSH dans le frontend et transmis au backend — il n'est jamais stocké.
 
----
-
 ### Active Directory (`adConfig`)
 
 | Clé             | Type       | Description                                                                                       |
@@ -62,8 +54,6 @@ Fichier de configuration principal du serveur WakeJS, situé dans `backend/confi
 | `authorizedOUs` | `string[]` | Liste des OUs autorisées à se connecter. Un utilisateur doit appartenir à au moins une de ces OUs |
 | `bannedOUs`     | `string[]` | Liste des OUs explicitement interdites, même si elles correspondent à une OU autorisée            |
 | `domainSuffix`  | `string`   | Suffixe ajouté au nom d'utilisateur pour former le UPN LDAP (ex: `"@sioa.univ-brest.fr"`)         |
-
-**Exemple :**
 
 ```json
 "adConfig": {
@@ -75,8 +65,6 @@ Fichier de configuration principal du serveur WakeJS, situé dans `backend/confi
 }
 ```
 
----
-
 ### VLANs (`vlans`)
 
 Tableau de définitions VLAN. Pour chaque hôte, le backend détermine l'adresse broadcast correcte en comparant le 3ème octet de son IP aux plages définies ici.
@@ -87,8 +75,6 @@ Tableau de définitions VLAN. Pour chaque hôte, le backend détermine l'adresse
 | `subnetEnd`        | `number` | Valeur maximale du 3ème octet                            |
 | `broadcastAddress` | `string` | Adresse broadcast à utiliser pour ce VLAN                |
 | `description`      | `string` | Libellé informatif (non utilisé en logique)              |
-
-**Exemple :**
 
 ```json
 "vlans": [
@@ -107,8 +93,6 @@ Tableau de définitions VLAN. Pour chaque hôte, le backend détermine l'adresse
 ]
 ```
 
----
-
 ## Format `dhcp-template.conf`
 
 Chaque hôte doit être déclaré sur **une seule ligne** au format ISC DHCP :
@@ -123,8 +107,6 @@ host <hostname> { hardware ethernet <mac>; fixed-address <ip>; } # <salle>
 | `<mac>`      | Adresse MAC au format `aa:bb:cc:dd:ee:ff`                                                       |
 | `<ip>`       | Adresse IP fixe de la machine                                                                   |
 | `# <salle>`  | Tag de salle — doit correspondre exactement aux salles définies dans `rooms.json` côté frontend |
-
-**Exemple :**
 
 ```
 host pc-b101-01 { hardware ethernet aa:bb:cc:dd:ee:ff; fixed-address 172.18.55.10; } # B101

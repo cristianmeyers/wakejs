@@ -2,8 +2,6 @@
 
 Le frontend charge deux fichiers JSON au démarrage : `config.json` (comportement de l'app) et `rooms.json` (données de navigation).
 
----
-
 ## `config.json`
 
 ```json
@@ -52,8 +50,6 @@ Contrôle quels sites sont affichés dans la navigation. Chaque clé correspond 
 | Clé                  | Type      | Description                                                              |
 | -------------------- | --------- | ------------------------------------------------------------------------ |
 | `<nom_site>.enabled` | `boolean` | Si `false`, le site et tous ses départements sont masqués de l'interface |
-
----
 
 ## `rooms.json`
 

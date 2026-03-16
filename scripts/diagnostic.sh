@@ -19,7 +19,7 @@ fi
 
 echo ""
 
-# 2. Test: Ping room B316
+
 echo "2. Test: Querying room 'B316' from API..."
 RESPONSE=$(curl -s -X POST $API_URL \
   -H "Content-Type: application/json" \
@@ -36,7 +36,7 @@ echo ""
 echo "─────────────────────────────────────────────"
 echo ""
 
-# 3. Test: Ping specific hosts
+
 echo "3. Test: Querying hosts 'eiutf220,eiutf221,eiutf222' from API..."
 RESPONSE2=$(curl -s -X POST $API_URL \
   -H "Content-Type: application/json" \
@@ -47,7 +47,7 @@ echo "$RESPONSE2" | jq '.'
 
 echo ""
 
-# Analyze individual results
+
 echo "Individual host analysis:"
 echo "$RESPONSE2" | jq -r '.results[] | "  - \(.id): found=\(.found // false), online=\(.online // "null")"'
 
@@ -55,7 +55,7 @@ echo ""
 echo "─────────────────────────────────────────────"
 echo ""
 
-# 4. Test: Awake range
+
 echo "4. Test: Awake range 'eiutf 220 222' from API..."
 RESPONSE3=$(curl -s -X POST $API_URL \
   -H "Content-Type: application/json" \
