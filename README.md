@@ -6,6 +6,10 @@ Application web full-stack pour le démarrage à distance d'un parc informatique
 
 WakeJS permet aux administrateurs système de **réveiller, pinguer ou éteindre** des postes de travail à distance depuis une interface web, sans aucun accès physique. Le système lit la configuration des hôtes depuis un fichier DHCP et envoie des **paquets magiques Wake-on-LAN** sur le réseau local.
 
+<p align="center">
+  <img src="cover.png" alt="WakeJS Banner" width="600">
+</p>
+
 ```
 wakejs/
 ├── backend/                    # API REST Node.js / Express
