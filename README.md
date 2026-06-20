@@ -1,4 +1,4 @@
-# 🖥️ WakeJS — Gestion centralisée du Wake-on-LAN
+# 🖥️ WakeJS - Gestion centralisée du Wake-on-LAN
 
 > Application web pour le démarrage à distance centralisé d’un parc informatique, organisé par département et salle, via une API REST et une interface frontend dynamique.
 
@@ -6,7 +6,7 @@
 
 ## 📋 Aperçu
 
-**WakeJS** est un outil full-stack conçu pour gérer l’allumage à distance des postes de travail sur un campus multi-bâtiments. Il combine une **API REST Node.js** avec un **frontend web dynamique**, permettant aux administrateurs de réveiller, pinguer ou éteindre des machines organisées par département et salle — sans aucun accès physique.
+**WakeJS** est un outil full-stack conçu pour gérer l’allumage à distance des postes de travail sur un campus multi-bâtiments. Il combine une **API REST Node.js** avec un **frontend web dynamique**, permettant aux administrateurs de réveiller, pinguer ou éteindre des machines organisées par département et salle - sans aucun accès physique.
 
 Le système lit la configuration des hôtes depuis un fichier modèle DHCP et envoie des **paquets magiques Wake-on-LAN** sur le réseau, avec une résolution intelligente des adresses broadcast adaptée aux VLAN.
 
@@ -45,10 +45,10 @@ wakejs/
 
 **Packages npm clés :**
 
-- `wol` — Génération de paquets magiques
-- `ping` — Vérification de disponibilité des hôtes
-- `express` — Serveur API REST
-- `cors` — Support cross-origin
+- `wol` - Génération de paquets magiques
+- `ping` - Vérification de disponibilité des hôtes
+- `express` - Serveur API REST
+- `cors` - Support cross-origin
 
 ---
 
@@ -128,7 +128,7 @@ Déclenche une action sur un ou plusieurs hôtes.
 | `name`   | ID de salle ou IDs d’hôtes séparés par des virgules | Identifiant cible            |
 | `action` | `ping` / `awake` / `shutdown`                       | Action à effectuer           |
 
-**Exemple — Réveiller toutes les machines de la salle B101 :**
+**Exemple - Réveiller toutes les machines de la salle B101 :**
 
 ```bash
 curl -X POST http://localhost:3000/api/action \
@@ -136,7 +136,7 @@ curl -X POST http://localhost:3000/api/action \
   -d '{"type": "Room", "name": "B101", "action": "awake"}'
 ```
 
-**Exemple — Pinguer des hôtes spécifiques :**
+**Exemple - Pinguer des hôtes spécifiques :**
 
 ```bash
 curl -X POST http://localhost:3000/api/action \
@@ -176,9 +176,9 @@ L’interface web guide l’utilisateur en 3 étapes :
 1. **Sélectionner un département** (SG, GB, GEA, GMP, GEII, GACOD, GC, FC, LBMS…)
 2. **Sélectionner une salle** dans la liste du département
 3. **Effectuer une action** sur les machines de cette salle :
-   - 🔵 **Ping** — Vérifier quelles machines sont en ligne
-   - 🟢 **Wake-on-LAN** — Envoyer des paquets magiques à toutes les machines
-   - 🔴 **Shutdown** — Éteindre les machines à distance via SSH
+   - 🔵 **Ping** - Vérifier quelles machines sont en ligne
+   - 🟢 **Wake-on-LAN** - Envoyer des paquets magiques à toutes les machines
+   - 🔴 **Shutdown** - Éteindre les machines à distance via SSH
 
 Chaque machine est affichée sous forme de carte avec son état en ligne/hors ligne.
 
@@ -202,10 +202,10 @@ Le fichier `dhcp-template.conf` suit la syntaxe ISC DHCP. Chaque hôte doit êtr
 host <hostname> { hardware ethernet <mac>; fixed-address <ip>; } # <room>
 ```
 
-- `<hostname>` — Identifiant unique de l’hôte
-- `<mac>` — Adresse MAC au format `aa:bb:cc:dd:ee:ff`
-- `<ip>` — Adresse IP statique
-- `# <room>` — Tag de salle (utilisé pour filtrer par salle)
+- `<hostname>` - Identifiant unique de l’hôte
+- `<mac>` - Adresse MAC au format `aa:bb:cc:dd:ee:ff`
+- `<ip>` - Adresse IP statique
+- `# <room>` - Tag de salle (utilisé pour filtrer par salle)
 
 ---
 
