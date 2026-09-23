@@ -1,0 +1,21 @@
+# Dépendances (Node.js) - Exclut tous les node_modules du projet (y compris dans DEV/)
+node_modules/
+**/node_modules/
+
+# Fichiers de configuration sensibles ou locaux
+config.json
+**/config.json
+.env
+.env.*
+
+# Fichiers / Dossiers temporaires et de logs
+arborescence.txt
+**/arborescence.txt
+*.log
+npm-debug.log*
+
+# Fichiers système et éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
