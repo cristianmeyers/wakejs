@@ -1,40 +1,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { modules as moduleRegistry } from '../modules'
 import ToggleSwitch from '../components/ToggleSwitch.vue'
 import SelectField from '../components/SelectField.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
-// Le proxy de vite.config.js relaie /api vers le backend Express
-const API_BASE = '/api'
-
-// Appel API authentifié (JWT en Bearer). Session expirée -> retour à la connexion.
-async function apiFetch(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
-      ...options.headers,
-    },
-  })
-  if (response.status === 401) {
-    authStore.logout()
-    router.push('/login')
-    throw new Error('SESSION_EXPIRED')
-  }
-  let data = null
-  try {
-    data = await response.json()
-  } catch {
-    // réponse non JSON (backend arrêté, proxy absent...)
-  }
-  return { ok: response.ok, status: response.status, data }
-}
+// URL de base de l'API backend (même convention que SetupView.vue)
+const API_BASE = 'http://localhost:3000/api'
 
 /* ------------------------------------------------------------------ */
 /* Onglets                                                             */
@@ -75,9 +48,9 @@ const toastClasses = computed(() => {
 
 /* ------------------------------------------------------------------ */
 /* ONGLET 1 : Général (mise à jour + langue)                           */
-/* Canal, vérification auto et langues : enregistrés en base.          */
-/* La recherche de mises à jour et les paquets de langue restent simulés */
-/* (TODO: routes backend à créer).                                       */
+/* -- Pas de route backend pour l'instant -> état local, à brancher --  */
+/* TODO: backend route à créer, ex. GET/POST /api/admin/updates        */
+/* TODO: backend route à créer, ex. GET/POST /api/admin/language       */
 /* ------------------------------------------------------------------ */
 const appVersion = ref('1.0.0')
 const isCheckingUpdate = ref(false)
@@ -184,27 +157,22 @@ function installUpdate() {
 
 /* ------------------------------------------------------------------ */
 /* ONGLET 2 : Authentification et sécurité                             */
-/* Enregistré en base mais PAS encore appliqué : la connexion reste     */
-/* locale tant que LDAP / OAuth2 ne sont pas implémentés côté backend.  */
+/* -- Pas de route backend pour l'instant -> état local, à brancher --  */
+/* TODO: backend route à créer, ex. GET/POST /api/admin/auth-provider  */
 /* ------------------------------------------------------------------ */
 const authProvider = ref('local') // 'local' | 'ldap' | 'oauth2'
-const ldapConfig = reactive({ host: '', baseDn: '' })
-const oauthConfig = reactive({ clientId: '', issuerUrl: '' })
+const ldapConfig = reactive({ host: 'ldap://192.168.1.10:389', baseDn: 'dc=entreprise,dc=local' })
+const oauthConfig = reactive({ clientId: 'wakejs-client', issuerUrl: '' })
 
 /* ------------------------------------------------------------------ */
-/* ONGLET 3 : Modules                                                  */
-/* Liste issue du registre src/modules. L'état activé/désactivé est     */
-/* enregistré en base mais PAS encore appliqué (Sidebar, routes).       */
+/* ONGLET 3 : Modules (activer/désactiver, WOL/Fog gérés ailleurs)     */
+/* TODO: backend route à créer, ex. GET/POST /api/admin/modules        */
 /* ------------------------------------------------------------------ */
-const modules = reactive(
-  moduleRegistry.map((m) => ({
-    id: m.id,
-    name: m.name,
-    icon: m.icon,
-    description: m.subtitle,
-    enabled: true,
-  })),
-)
+const modules = reactive([
+  { id: 'dashboard', name: 'DashBoard', icon: 'fas fa-chart-pie', enabled: true, description: 'Vue d\'ensemble du réseau' },
+  { id: 'wol', name: 'Wake On Lan', icon: 'fas fa-network-wired', enabled: true, description: 'Envoi de paquets magiques' },
+  { id: 'fog', name: 'Fog Image Viewer', icon: 'fas fa-images', enabled: false, description: 'Gestion des images FOG' },
+])
 
 /* ------------------------------------------------------------------ */
 /* ONGLET 4 : Maintenance et Logs -- BRANCHÉ SUR /api/admin/logs        */
@@ -217,25 +185,26 @@ async function fetchLogs() {
   isLoadingLogs.value = true
   logsError.value = ''
   try {
-    const { ok, data } = await apiFetch('/admin/logs')
-    if (ok && data?.success) {
+    const response = await fetch(`${API_BASE}/admin/logs`, {
+      method: 'GET',
+      credentials: 'include', // envoie le cookie de session s'il existe
+      headers: {
+        'Content-Type': 'application/json',
+        // Ajuste selon le mécanisme réel de requireAuth (cookie vs JWT bearer) :
+        ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
+      },
+    })
+    const data = await response.json()
+    if (response.ok && data.success) {
       logs.value = data.logs
     } else {
-      logsError.value = data?.message || 'Impossible de charger les journaux.'
+      logsError.value = data.message || 'Impossible de charger les journaux.'
     }
   } catch (err) {
-    if (err.message !== 'SESSION_EXPIRED') {
-      logsError.value = 'Erreur réseau lors de la récupération des logs.'
-    }
+    logsError.value = 'Erreur réseau lors de la récupération des logs.'
   } finally {
     isLoadingLogs.value = false
   }
-}
-
-// `details` peut être un objet (colonne JSONB) ou du texte
-function formatDetails(details) {
-  if (details === null || details === undefined) return ''
-  return typeof details === 'object' ? JSON.stringify(details) : String(details)
 }
 
 function formatLogDate(dateStr) {
@@ -258,7 +227,7 @@ const logLevelOptions = [
 ]
 
 onMounted(() => {
-  loadSettings()
+  if (activeTab.value === 'logs') fetchLogs()
 })
 
 function selectTab(tabId) {
@@ -270,19 +239,16 @@ function selectTab(tabId) {
 
 /* ------------------------------------------------------------------ */
 /* ONGLET 5 : Courrier (SMTP)                                          */
-/* Enregistré en base : le mot de passe est chiffré côté serveur et     */
-/* JAMAIS renvoyé au navigateur. L'envoi réel de mails n'existe pas     */
-/* encore : le bouton de test reste simulé.                             */
+/* TODO: backend route à créer, ex. GET/POST /api/admin/mail            */
 /* ------------------------------------------------------------------ */
 const mailConfig = reactive({
   host: '',
   port: 587,
   user: '',
-  password: '', // vide = ne pas modifier le mot de passe enregistré
+  password: '',
   fromAddress: '',
   secure: true,
 })
-const mailPasswordSet = ref(false)
 const isSendingTestMail = ref(false)
 
 function sendTestMail() {
@@ -295,140 +261,17 @@ function sendTestMail() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Réglages : chargement, détection des modifications, sauvegarde      */
+/* Sauvegarde globale                                                   */
 /* ------------------------------------------------------------------ */
-const SECTION_IDS = ['general', 'auth', 'modules', 'logs', 'mail']
-
-// Ce que chaque section envoie au serveur, construit depuis l'état de la page
-const collectors = {
-  general: () => ({
-    versionChannel: versionChannel.value,
-    autoCheckUpdate: autoCheckUpdate.value,
-    language: language.value,
-    debugLanguage: debugLanguage.value,
-    autoUpdateLanguagePacks: autoUpdateLanguagePacks.value,
-  }),
-  auth: () => ({
-    provider: authProvider.value,
-    ldapHost: ldapConfig.host,
-    ldapBaseDn: ldapConfig.baseDn,
-    oauthClientId: oauthConfig.clientId,
-    oauthIssuerUrl: oauthConfig.issuerUrl,
-  }),
-  modules: () => Object.fromEntries(modules.map((m) => [m.id, m.enabled])),
-  logs: () => ({ level: logLevel.value, retentionDays: Number(logRetentionDays.value) }),
-  mail: () => ({
-    host: mailConfig.host,
-    port: Number(mailConfig.port),
-    user: mailConfig.user,
-    password: mailConfig.password,
-    fromAddress: mailConfig.fromAddress,
-    secure: mailConfig.secure,
-  }),
-}
-
-// Ce que le serveur renvoie, appliqué à l'état de la page
-const appliers = {
-  general(d) {
-    versionChannel.value = d.versionChannel
-    autoCheckUpdate.value = d.autoCheckUpdate
-    language.value = d.language
-    debugLanguage.value = d.debugLanguage
-    autoUpdateLanguagePacks.value = d.autoUpdateLanguagePacks
-  },
-  auth(d) {
-    authProvider.value = d.provider
-    ldapConfig.host = d.ldapHost
-    ldapConfig.baseDn = d.ldapBaseDn
-    oauthConfig.clientId = d.oauthClientId
-    oauthConfig.issuerUrl = d.oauthIssuerUrl
-  },
-  modules(d) {
-    modules.forEach((m) => {
-      m.enabled = d[m.id] ?? true
-    })
-  },
-  logs(d) {
-    logLevel.value = d.level
-    logRetentionDays.value = d.retentionDays
-  },
-  mail(d) {
-    mailConfig.host = d.host
-    mailConfig.port = d.port
-    mailConfig.user = d.user
-    mailConfig.fromAddress = d.fromAddress
-    mailConfig.secure = d.secure
-    mailConfig.password = '' // le mot de passe ne revient jamais du serveur
-    mailPasswordSet.value = d.passwordSet
-  },
-}
-
-// Photo de chaque section telle qu'enregistrée : sert à savoir ce qui a changé
-const snapshots = reactive({})
-const takeSnapshot = (section) => {
-  snapshots[section] = JSON.stringify(collectors[section]())
-}
-
-const dirtySections = computed(() =>
-  SECTION_IDS.filter(
-    (id) => snapshots[id] !== undefined && JSON.stringify(collectors[id]()) !== snapshots[id],
-  ),
-)
-
-const settingsLoaded = ref(false)
-const settingsError = ref('')
-// Pas de sauvegarde tant que le chargement n'a pas réussi : sinon on écraserait
-// les vrais réglages avec les valeurs par défaut de la page.
-const canSave = computed(() => settingsLoaded.value && dirtySections.value.length > 0)
-
-async function loadSettings() {
-  settingsError.value = ''
-  try {
-    const { ok, data } = await apiFetch('/admin/settings')
-    if (!ok || !data?.success) {
-      settingsError.value =
-        data?.message ||
-        'Réponse invalide du serveur (backend lancé ? proxy Vite actif après redémarrage de npm run dev ?).'
-      return
-    }
-    for (const id of SECTION_IDS) {
-      appliers[id](data.settings[id])
-      takeSnapshot(id)
-    }
-    settingsLoaded.value = true
-  } catch (err) {
-    if (err.message !== 'SESSION_EXPIRED') settingsError.value = 'Impossible de joindre le serveur.'
-  }
-}
-
 const isSaving = ref(false)
 
-// Enregistre uniquement les sections modifiées, quel que soit l'onglet affiché
 async function saveSettings() {
-  if (!canSave.value || isSaving.value) return
   isSaving.value = true
-  const failures = []
-  try {
-    for (const id of [...dirtySections.value]) {
-      const { ok, data } = await apiFetch(`/admin/settings/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(collectors[id]()),
-      })
-      if (ok && data?.success) {
-        appliers[id](data.data) // valeurs normalisées par le serveur
-        takeSnapshot(id)
-      } else {
-        failures.push(data?.message || `Échec de l'enregistrement (${id}).`)
-      }
-    }
-  } catch (err) {
-    if (err.message === 'SESSION_EXPIRED') return
-    failures.push('Impossible de joindre le serveur.')
-  } finally {
+  // TODO: appeler la route backend correspondant à activeTab.value une fois créée
+  setTimeout(() => {
     isSaving.value = false
-  }
-  if (failures.length > 0) showToast(failures.join(' '), 'error')
-  else showToast('Configuration sauvegardée avec succès !', 'success')
+    showToast('Configuration sauvegardée avec succès !', 'success')
+  }, 700)
 }
 </script>
 
@@ -452,31 +295,17 @@ async function saveSettings() {
         >
           <i :class="tab.icon"></i>
           <span>{{ tab.label }}</span>
-          <span
-            v-if="dirtySections.includes(tab.id)"
-            class="w-2 h-2 rounded-full bg-amber-400"
-            title="Modifications non enregistrées"
-          ></span>
         </button>
       </div>
 
       <button
         @click="saveSettings"
-        :disabled="isSaving || !canSave"
-        class="w-full sm:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+        :disabled="isSaving"
+        class="w-full sm:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
       >
         <i :class="isSaving ? 'fas fa-spinner animate-spin' : 'fas fa-save'"></i>
         <span>{{ isSaving ? 'Enregistrement...' : 'Sauvegarder' }}</span>
       </button>
-    </div>
-
-    <!-- Erreur de chargement des réglages -->
-    <div
-      v-if="settingsError"
-      class="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs font-bold rounded-xl p-3 flex items-center justify-between gap-3"
-    >
-      <span>{{ settingsError }}</span>
-      <button @click="loadSettings" class="shrink-0 underline">Réessayer</button>
     </div>
 
     <!-- ONGLET GÉNÉRAL -->
@@ -815,7 +644,7 @@ async function saveSettings() {
                   </span>
                 </td>
                 <td class="p-3">{{ log.action }}</td>
-                <td class="p-3 text-slate-400 font-normal">{{ formatDetails(log.details) }}</td>
+                <td class="p-3 text-slate-400 font-normal">{{ log.details }}</td>
               </tr>
             </tbody>
           </table>
@@ -866,7 +695,7 @@ async function saveSettings() {
           </div>
           <div class="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1">
             <label class="block text-[10px] font-black uppercase text-slate-400">Mot de passe</label>
-            <input v-model="mailConfig.password" type="password" autocomplete="new-password" :placeholder="mailPasswordSet ? '•••••••• (enregistré, laisser vide pour le conserver)' : ''" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold" />
+            <input v-model="mailConfig.password" type="password" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold" />
           </div>
           <div class="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1">
             <label class="block text-[10px] font-black uppercase text-slate-400">Adresse d'expédition</label>

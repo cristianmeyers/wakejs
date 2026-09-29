@@ -3,7 +3,6 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
-import { modules } from '../modules'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,11 +31,15 @@ const handleLogout = () => {
 const menuItems = [
   { name: 'Settings', path: '/settings', icon: 'fas fa-cog' },
   { name: 'Theme', path: '/theme', icon: 'fas fa-palette' },
-  { name: 'Utilisateurs', path: '/users', icon: 'fas fa-users' },
+  { name: 'Lorem Ipsum', path: '/lorem', icon: 'fas fa-paragraph' },
 ]
 
 // Routes de la section Modules
-const moduleItems = modules.map((m) => ({ name: m.name, path: m.path, icon: m.icon }))
+const moduleItems = [
+  { name: 'DashBoard', path: '/', icon: 'fas fa-chart-pie' },
+  { name: 'Wake On Lan', path: '/wol', icon: 'fas fa-network-wired' },
+  { name: 'Fog Image Viewer', path: '/fog', icon: 'fas fa-images' },
+]
 </script>
 
 <template>

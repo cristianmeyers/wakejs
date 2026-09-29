@@ -1,30 +1,24 @@
 import { createRouter, createWebHistory } from "vue-router";
+import HomeView from "../views/HomeView.vue";
 import LoginView from "../views/LoginView.vue";
 import SetupView from "../views/SetupView.vue";
 import SettingsView from "../views/SettingsView.vue";
 import ThemeView from "../views/ThemeView.vue";
 import { useAuthStore } from "../stores/auth";
-import { modules } from "../modules";
-import UsersView from "../views/UsersView.vue";
-
-// Routes des modules, générées depuis les manifestes de src/modules/*/index.js.
-// Toutes protégées par défaut (requiresAuth: true).
-const moduleRoutes = modules.map((m) => ({
-  path: m.path,
-  name: m.routeName ?? m.id,
-  component: m.component,
-  meta: {
-    requiresAuth: true,
-    title: m.title,
-    subtitle: m.subtitle,
-  },
-}));
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    ...moduleRoutes,
-    // Pages du cœur (ce ne sont pas des modules)
+    {
+      path: "/",
+      name: "home",
+      component: HomeView,
+      meta: {
+        requiresAuth: true,
+        title: "Dashboard",
+        subtitle: "Vue d'ensemble et état du réseau",
+      },
+    },
     {
       path: "/settings",
       name: "settings",
@@ -33,16 +27,6 @@ const router = createRouter({
         requiresAuth: true,
         title: "Configuration",
         subtitle: "Paramètres globaux du site et du serveur",
-      },
-    },
-    {
-      path: "/users",
-      name: "users",
-      component: UsersView,
-      meta: {
-        requiresAuth: true,
-        title: "Utilisateurs",
-        subtitle: "Comptes, rôles et historique des actions",
       },
     },
     {
